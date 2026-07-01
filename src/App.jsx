@@ -11,6 +11,58 @@ const LEVELS = {
   "上級": { label: "上級", desc: "Subjunctive, participial phrases, business topics" },
 };
 const TOPICS = ["日常会話", "旅行", "ビジネス", "フリートーク"];
+
+const SCENARIOS = {
+  greeting: {
+    label: "挨拶・雑談",
+    desc: "レッスン開始時のあいさつ、アイスブレイク",
+    color: "#D97757",
+    seedPhrases: [
+      "今週の調子はどうですか、と聞く",
+      "前回の内容を復習したか尋ねる",
+      "今日は何について学びますか、と伝える",
+      "質問はありますか、と聞く",
+      "始める前に少し雑談する",
+    ],
+  },
+  grammar: {
+    label: "文法説明",
+    desc: "文法・語彙の説明、意味の解説",
+    color: "#1F2A37",
+    seedPhrases: [
+      "この単語はこういう意味です、と説明する",
+      "AとBの違いはここです、と伝える",
+      "この動詞がどう変化するか気づかせる",
+      "こう考えるとわかりやすいですよ、と伝える",
+      "これはよく使うパターンです、と伝える",
+    ],
+  },
+  instruction: {
+    label: "指示・練習",
+    desc: "ロールプレイの指示、練習の進め方",
+    color: "#7A8B6F",
+    seedPhrases: [
+      "この文を声に出して読んでみて、と指示する",
+      "役割を交代しましょう、と伝える",
+      "私の後について繰り返してください、と言う",
+      "焦らなくて大丈夫ですよ、と伝える",
+      "このパターンを使って文を作ってみて、と指示する",
+    ],
+  },
+  feedback: {
+    label: "訂正・フィードバック",
+    desc: "生徒の間違いを直す、褒める",
+    color: "#C2691F",
+    seedPhrases: [
+      "惜しい、小さな間違いがあります、と伝える",
+      "もっと自然な言い方はこうです、と直す",
+      "とても自然でした、と褒める",
+      "よくある間違いなので気にしないで、と伝える",
+      "その調子で続けましょう、と励ます",
+    ],
+  },
+};
+
 const SCORE_META = {
   perfect: { label: "Perfect", color: "#7A8B6F", Icon: CheckCircle2 },
   good: { label: "Good", color: "#C9A04A", Icon: CheckCircle2 },
@@ -52,6 +104,10 @@ function buildLessonQueue(deck) {
     ...reviewCards.map((c) => ({ type: "review", card: c })),
     ...Array.from({ length: newCount }, () => ({ type: "new", card: null })),
   ];
+}
+
+function buildScenarioQueue() {
+  return Array.from({ length: QUESTIONS_PER_LESSON }, () => ({ type: "new", card: null }));
 }
 
 function similarity(a, b) {
@@ -104,6 +160,19 @@ Respond with ONLY this JSON, nothing else: {"japanese": "...", "english_correct"
   return callClaude(system, "Generate the next card now.");
 }
 
+function generateScenarioCard(scenarioKey, avoidList) {
+  const s = SCENARIOS[scenarioKey];
+  const seed = s.seedPhrases[Math.floor(Math.random() * s.seedPhrases.length)];
+  const system = `You are an English coach helping a Japanese-language tutor build the specific English she needs while teaching her own lessons in English.
+Scenario: "${s.label}" (${s.desc}).
+Base intent for this sentence (in Japanese, describing what the tutor wants to say in class): ${seed}
+Generate ONE natural Japanese instruction line describing that intent (as something to be translated into English), plus one natural, idiomatic English sentence a real online tutor would actually say in that exact classroom moment, plus a short hint in English (a key phrase or structure) that does not give away the full answer.
+Keep the English reference sentence short and speakable (roughly 6-14 words), the kind of line said live during a lesson.
+Avoid repeating or closely resembling any of these already-used Japanese sentences: ${avoidList.join(" / ") || "(none yet)"}
+Respond with ONLY this JSON, nothing else: {"japanese": "...", "english_correct": "...", "hint": "..."}`;
+  return callClaude(system, "Generate the next card now.");
+}
+
 function evaluateAnswer(japanese, reference, userAnswer) {
   const system = `You are a warm, encouraging English conversation coach speaking live with a Japanese learner during a speaking drill. The learner heard a Japanese sentence and tried to say its English translation out loud; their answer was captured by speech-to-text, so minor transcription glitches (missing articles, homophones, punctuation) may not reflect a real mistake — use judgment.
 Always respond in English, in a natural SPOKEN style (1-2 short sentences, like a real coach talking, not written notes or bullet points), since your feedback will be read aloud by text-to-speech.
@@ -112,6 +181,18 @@ Japanese sentence: "${japanese}"
 Reference translation: "${reference}"
 Respond with ONLY this JSON, nothing else:
 {"score": "perfect" | "good" | "needs_improvement", "feedback": "short spoken-style coaching feedback", "corrected_sentence": "the best natural English version", "encouragement": "a short upbeat phrase"}`;
+  return callClaude(system, `The learner's spoken answer was: "${userAnswer}"`);
+}
+
+function evaluateScenarioAnswer(japanese, reference, userAnswer, scenarioKey) {
+  const s = SCENARIOS[scenarioKey];
+  const system = `You are a warm, encouraging English coach helping a Japanese-language tutor rehearse the English she'll use live while teaching her own students, in the scenario "${s.label}" (${s.desc}). She heard a Japanese instruction line and tried to say its English classroom-appropriate version out loud; her answer was captured by speech-to-text, so minor transcription glitches (missing articles, homophones, punctuation) may not reflect a real mistake — use judgment.
+Always respond in English, in a natural SPOKEN style (1-2 short sentences, like a real coach talking, not written notes or bullet points), since your feedback will be read aloud by text-to-speech.
+Judge naturalness for an actual live teaching moment, not just grammatical correctness — the reference translation is a guide, not the only acceptable answer.
+Japanese instruction line: "${japanese}"
+Reference translation: "${reference}"
+Respond with ONLY this JSON, nothing else:
+{"score": "perfect" | "good" | "needs_improvement", "feedback": "short spoken-style coaching feedback", "corrected_sentence": "the best natural classroom English version", "encouragement": "a short upbeat phrase"}`;
   return callClaude(system, `The learner's spoken answer was: "${userAnswer}"`);
 }
 
@@ -169,6 +250,8 @@ function saveData(deck, stats, settings) {
 
 export default function ShunkanEisakubunCoach() {
   const [stage, setStage] = useState("onboarding");
+  const [mode, setMode] = useState("practice"); // "practice" | "scenario"
+  const [scenarioKey, setScenarioKey] = useState("greeting");
   const [settings, setSettings] = useState({ level: "中級", topic: "日常会話" });
   const [deck, setDeck] = useState([]);
   const [stats, setStats] = useState({ totalReviewed: 0, streak: 0, lastDate: null });
@@ -230,15 +313,17 @@ export default function ShunkanEisakubunCoach() {
       const attempt = async () => {
         try {
           const used = queueRef.current.filter((q) => q.card).map((q) => q.card.japanese)
-            .concat(deck.map((c) => c.japanese));
-          const card = await generateNewCard(settings.level, settings.topic, used);
+            .concat(mode === "practice" ? deck.map((c) => c.japanese) : []);
+          const card = mode === "scenario"
+            ? await generateScenarioCard(scenarioKey, used)
+            : await generateNewCard(settings.level, settings.topic, used);
           item.card = {
             id: `c_${Date.now()}_${idx}`,
             japanese: card.japanese,
             english_correct: card.english_correct,
             hint: card.hint,
-            level: settings.level,
-            topic: settings.topic,
+            level: mode === "scenario" ? scenarioKey : settings.level,
+            topic: mode === "scenario" ? "scenario" : settings.topic,
             reps: 0, intervalDays: 0, ease: 2.5,
             dueAt: Date.now(), createdAt: Date.now(),
           };
@@ -271,7 +356,9 @@ export default function ShunkanEisakubunCoach() {
     setPhase("evaluating");
     const attempt = async () => {
       try {
-        const result = await evaluateAnswer(currentCard.japanese, currentCard.english_correct, answer);
+        const result = mode === "scenario"
+          ? await evaluateScenarioAnswer(currentCard.japanese, currentCard.english_correct, answer, scenarioKey)
+          : await evaluateAnswer(currentCard.japanese, currentCard.english_correct, answer);
         setEvalResult(result);
         setPhase("result");
         await speak(result.feedback, "en-US");
@@ -316,6 +403,21 @@ export default function ShunkanEisakubunCoach() {
   };
 
   const finishLesson = () => {
+    const today = todayStr();
+    const diff = stats.lastDate ? Math.round((new Date(today) - new Date(stats.lastDate)) / 86400000) : null;
+    const streak = stats.lastDate === today ? stats.streak : (diff === 1 || stats.lastDate === null ? stats.streak + 1 : 1);
+    const nextStats = { totalReviewed: stats.totalReviewed + lessonResults.length, streak, lastDate: today };
+
+    if (mode === "scenario") {
+      // シナリオモードはSRSデッキに保存せず、その場の集計のみ表示
+      const updatedSummaries = lessonResults.map((r) => ({ ...r, dueInDays: null }));
+      setStats(nextStats);
+      setSummaries(updatedSummaries);
+      saveData(deck, nextStats, settings);
+      setStage("summary");
+      return;
+    }
+
     let nextDeck = [...deck];
     const updatedSummaries = [];
     for (const r of lessonResults) {
@@ -326,10 +428,6 @@ export default function ShunkanEisakubunCoach() {
       if (idx >= 0) nextDeck[idx] = scheduled; else nextDeck.push(scheduled);
       updatedSummaries.push({ ...r, dueInDays: scheduled.intervalDays });
     }
-    const today = todayStr();
-    const diff = stats.lastDate ? Math.round((new Date(today) - new Date(stats.lastDate)) / 86400000) : null;
-    const streak = stats.lastDate === today ? stats.streak : (diff === 1 || stats.lastDate === null ? stats.streak + 1 : 1);
-    const nextStats = { totalReviewed: stats.totalReviewed + lessonResults.length, streak, lastDate: today };
 
     setDeck(nextDeck);
     setStats(nextStats);
@@ -339,20 +437,24 @@ export default function ShunkanEisakubunCoach() {
   };
 
   const startGreeting = async () => {
-    const queue = buildLessonQueue(deck);
+    const queue = mode === "scenario" ? buildScenarioQueue() : buildLessonQueue(deck);
     queueRef.current = queue;
     setLessonResults([]);
-    const reviewCount = queue.filter((q) => q.type === "review").length;
-    const newCount = queue.length - reviewCount;
     let text;
-    if (stats.totalReviewed === 0)
-      text = "Hi! I'm your English coach. Today we'll start with five brand-new sentences. Let's dive in!";
-    else if (reviewCount === 0)
-      text = "Welcome back! Today's lesson is five new sentences. Ready? Let's go!";
-    else if (newCount === 0)
-      text = `Welcome back! Today we're reviewing ${reviewCount} sentence${reviewCount > 1 ? "s" : ""} from before. Let's refresh your memory!`;
-    else
-      text = `Welcome back! Today: ${reviewCount} review${reviewCount > 1 ? "s" : ""} and ${newCount} new sentence${newCount > 1 ? "s" : ""}. Let's get started!`;
+    if (mode === "scenario") {
+      text = `Let's practice English for "${SCENARIOS[scenarioKey].label}" today. ${queue.length} phrases coming up — let's dive in!`;
+    } else {
+      const reviewCount = queue.filter((q) => q.type === "review").length;
+      const newCount = queue.length - reviewCount;
+      if (stats.totalReviewed === 0)
+        text = "Hi! I'm your English coach. Today we'll start with five brand-new sentences. Let's dive in!";
+      else if (reviewCount === 0)
+        text = "Welcome back! Today's lesson is five new sentences. Ready? Let's go!";
+      else if (newCount === 0)
+        text = `Welcome back! Today we're reviewing ${reviewCount} sentence${reviewCount > 1 ? "s" : ""} from before. Let's refresh your memory!`;
+      else
+        text = `Welcome back! Today: ${reviewCount} review${reviewCount > 1 ? "s" : ""} and ${newCount} new sentence${newCount > 1 ? "s" : ""}. Let's get started!`;
+    }
     setGreetingText(text);
     setStage("greeting");
     speak(text, "en-US");
@@ -374,43 +476,73 @@ export default function ShunkanEisakubunCoach() {
           <h1 style={{ fontFamily: "Georgia, serif", fontSize: 32, lineHeight: 1.25, margin: "0 0 10px", fontWeight: 700 }}>
             瞬間英作文<br />コーチ
           </h1>
-          <p style={{ fontSize: 14.5, lineHeight: 1.7, color: "#4B5563", margin: "0 0 28px" }}>
-            Coach says a Japanese sentence out loud → you answer in English by voice → coach gives feedback → you repeat it. 5 sentences per lesson, with spaced-repetition review.
+          <p style={{ fontSize: 14.5, lineHeight: 1.7, color: "#4B5563", margin: "0 0 22px" }}>
+            {mode === "practice"
+              ? "Coach says a Japanese sentence out loud → you answer in English by voice → coach gives feedback → you repeat it. 5 sentences per lesson, with spaced-repetition review."
+              : "オンラインレッスンの場面を選んで、実際に教室で使う英語を瞬間英作文で練習します。1回5問。"}
           </p>
 
-          <div style={{ marginBottom: 24 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#6B7280", marginBottom: 10 }}>Level</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {Object.keys(LEVELS).map((key) => (
-                <button key={key} onClick={() => setSettings((s) => ({ ...s, level: key }))}
-                  style={{ textAlign: "left", padding: "13px 16px", borderRadius: 12, border: settings.level === key ? "2px solid #D97757" : "1px solid #E5DFD3", background: settings.level === key ? "#FBEFE6" : "#FFFFFF", cursor: "pointer" }}>
-                  <div style={{ fontWeight: 700, fontSize: 15 }}>{LEVELS[key].label}</div>
-                  <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>{LEVELS[key].desc}</div>
-                </button>
-              ))}
-            </div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 24, background: "#F0EAD9", padding: 4, borderRadius: 14 }}>
+            <button onClick={() => setMode("practice")}
+              style={{ flex: 1, padding: "10px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 13, background: mode === "practice" ? "#1F2A37" : "transparent", color: mode === "practice" ? "#FBF7F0" : "#6B7280" }}>
+              瞬間英作文
+            </button>
+            <button onClick={() => setMode("scenario")}
+              style={{ flex: 1, padding: "10px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 13, background: mode === "scenario" ? "#1F2A37" : "transparent", color: mode === "scenario" ? "#FBF7F0" : "#6B7280" }}>
+              レッスンシナリオ
+            </button>
           </div>
 
-          <div style={{ marginBottom: 28 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "#6B7280", marginBottom: 10 }}>Topic</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-              {TOPICS.map((t) => (
-                <button key={t} onClick={() => setSettings((s) => ({ ...s, topic: t }))}
-                  style={{ padding: "9px 16px", borderRadius: 20, border: settings.topic === t ? "2px solid #1F2A37" : "1px solid #E5DFD3", background: settings.topic === t ? "#1F2A37" : "#FFFFFF", color: settings.topic === t ? "#FBF7F0" : "#1F2A37", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                  {t}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {deck.length > 0 && (
-            <div style={{ display: "flex", gap: 16, marginBottom: 24, padding: "12px 16px", background: "#FFFFFF", borderRadius: 12, border: "1px solid #E5DFD3", fontSize: 13, color: "#6B7280" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <Flame size={15} color="#C9A04A" />
-                <span style={{ fontWeight: 700, color: "#1F2A37" }}>{stats.streak}</span> day streak
+          {mode === "practice" ? (
+            <>
+              <div style={{ marginBottom: 24 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#6B7280", marginBottom: 10 }}>Level</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {Object.keys(LEVELS).map((key) => (
+                    <button key={key} onClick={() => setSettings((s) => ({ ...s, level: key }))}
+                      style={{ textAlign: "left", padding: "13px 16px", borderRadius: 12, border: settings.level === key ? "2px solid #D97757" : "1px solid #E5DFD3", background: settings.level === key ? "#FBEFE6" : "#FFFFFF", cursor: "pointer" }}>
+                      <div style={{ fontWeight: 700, fontSize: 15 }}>{LEVELS[key].label}</div>
+                      <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>{LEVELS[key].desc}</div>
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div>{deck.length} cards learned</div>
-              <div>{dueCount} due today</div>
+
+              <div style={{ marginBottom: 28 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#6B7280", marginBottom: 10 }}>Topic</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {TOPICS.map((t) => (
+                    <button key={t} onClick={() => setSettings((s) => ({ ...s, topic: t }))}
+                      style={{ padding: "9px 16px", borderRadius: 20, border: settings.topic === t ? "2px solid #1F2A37" : "1px solid #E5DFD3", background: settings.topic === t ? "#1F2A37" : "#FFFFFF", color: settings.topic === t ? "#FBF7F0" : "#1F2A37", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {deck.length > 0 && (
+                <div style={{ display: "flex", gap: 16, marginBottom: 24, padding: "12px 16px", background: "#FFFFFF", borderRadius: 12, border: "1px solid #E5DFD3", fontSize: 13, color: "#6B7280" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <Flame size={15} color="#C9A04A" />
+                    <span style={{ fontWeight: 700, color: "#1F2A37" }}>{stats.streak}</span> day streak
+                  </div>
+                  <div>{deck.length} cards learned</div>
+                  <div>{dueCount} due today</div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#6B7280", marginBottom: 10 }}>場面を選択</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {Object.entries(SCENARIOS).map(([key, s]) => (
+                  <button key={key} onClick={() => setScenarioKey(key)}
+                    style={{ textAlign: "left", padding: "13px 16px", borderRadius: 12, border: scenarioKey === key ? `2px solid ${s.color}` : "1px solid #E5DFD3", background: scenarioKey === key ? `${s.color}14` : "#FFFFFF", cursor: "pointer" }}>
+                    <div style={{ fontWeight: 700, fontSize: 15 }}>{s.label}</div>
+                    <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>{s.desc}</div>
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 
@@ -462,7 +594,7 @@ export default function ShunkanEisakubunCoach() {
                       <meta.Icon size={14} color={meta.color} />
                       <span style={{ fontSize: 12, fontWeight: 700, color: meta.color }}>{meta.label}</span>
                     </div>
-                    <span style={{ fontSize: 11.5, color: "#9CA3AF" }}>next review in {s.dueInDays}d</span>
+                    {s.dueInDays != null && <span style={{ fontSize: 11.5, color: "#9CA3AF" }}>next review in {s.dueInDays}d</span>}
                   </div>
                   <div style={{ fontFamily: "Georgia, serif", fontSize: 14.5, marginBottom: 3 }}>{s.card.japanese}</div>
                   <div style={{ fontSize: 12.5, color: "#6B7280" }}>{s.corrected_sentence || s.card.english_correct}</div>
@@ -475,7 +607,7 @@ export default function ShunkanEisakubunCoach() {
               <Flame size={15} color="#C9A04A" />
               <span style={{ fontWeight: 700, color: "#1F2A37" }}>{stats.streak}</span> day streak
             </div>
-            <div>{deck.length} cards in deck</div>
+            {mode === "practice" && <div>{deck.length} cards in deck</div>}
           </div>
           <button onClick={() => setStage("onboarding")}
             style={{ width: "100%", padding: "15px", borderRadius: 14, background: "#1F2A37", color: "#FBF7F0", border: "none", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
@@ -504,7 +636,9 @@ export default function ShunkanEisakubunCoach() {
           </div>
           <div>
             <div style={{ fontSize: 13.5, fontWeight: 700 }}>Question {currentIndex + 1} of {queueRef.current.length}</div>
-            <div style={{ fontSize: 11, color: "#9CA3AF" }}>{currentType === "review" ? "🔁 Review" : "✨ New"} · {settings.level}</div>
+            <div style={{ fontSize: 11, color: "#9CA3AF" }}>
+              {mode === "scenario" ? SCENARIOS[scenarioKey].label : `${currentType === "review" ? "🔁 Review" : "✨ New"} · ${settings.level}`}
+            </div>
           </div>
         </div>
         <button onClick={() => setShowSettings(true)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
