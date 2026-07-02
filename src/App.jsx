@@ -2,8 +2,9 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Flame, Mic, Square, Volume2, Repeat, CheckCircle2,
   AlertCircle, Sparkles, Settings2, X, ChevronRight,
-  Lightbulb, RotateCcw, SkipForward,
+  Lightbulb, RotateCcw, SkipForward, BookOpen,
 } from "lucide-react";
+import { LESSONS } from "./lessonData";
 
 const LEVELS = {
   "初級": { label: "初級", desc: "Present / past tense, can / will" },
@@ -186,6 +187,35 @@ function buildScenarioQueue() {
   return Array.from({ length: QUESTIONS_PER_LESSON }, () => ({ type: "new", card: null }));
 }
 
+// --- 課別レッスンの出題キューを組み立てる(データ駆動) ---
+// lesson: LESSONS[lessonId] のオブジェクト
+// activity: "explain"(文法説明) | "run"(授業運営)
+// pointId: 文法ポイントのid、または "all"(全ポイントからまとめて)
+function buildLessonModeQueue(lesson, activity, pointId) {
+  const points = pointId === "all" ? lesson.points : lesson.points.filter((p) => p.id === pointId);
+  const tasks = [];
+  points.forEach((p) => {
+    const list = activity === "explain" ? p.explain : p.run;
+    (list || []).forEach((t) => tasks.push({ ...t, pointLabel: p.label }));
+  });
+  const shuffled = [...tasks].sort(() => Math.random() - 0.5);
+  // 単一ポイントならそのポイントの全問、「まとめて」なら6問に絞る
+  const cap = pointId === "all" ? 6 : shuffled.length;
+  const chosen = shuffled.slice(0, Math.max(1, Math.min(cap, shuffled.length)));
+  return chosen.map((t, i) => ({
+    type: "new",
+    card: {
+      id: `l_${Date.now()}_${i}`,
+      japanese: t.ja,
+      english_correct: t.en,
+      hint: t.hint,
+      pointLabel: t.pointLabel,
+      lesson: lesson.id,
+      activity,
+    },
+  }));
+}
+
 function similarity(a, b) {
   const norm = (s) => s.toLowerCase().replace(/[^a-z0-9' ]/g, "").trim().split(/\s+/).filter(Boolean);
   const wa = norm(a), wb = norm(b);
@@ -295,6 +325,22 @@ Respond with ONLY this JSON, nothing else:
   return callClaude(system, `The learner's spoken answer was: "${userAnswer}"`);
 }
 
+// 課別レッスン用の評価。activity で「文法説明」か「授業運営」かを切り替える。
+function evaluateLessonAnswer(japanese, reference, userAnswer, activity, pointLabel) {
+  const context = activity === "explain"
+    ? `She is practicing how to EXPLAIN a Japanese grammar point ("${pointLabel}") in clear, simple English to a beginner student. Judge whether her explanation is clear, accurate, and easy for a learner to follow — not whether it matches the reference word-for-word.`
+    : `She is practicing the spoken English she'll use to RUN a class activity and manage the lesson (giving instructions, starting a drill, asking a question, correcting, encouraging) for the grammar point "${pointLabel}". Judge whether it sounds like natural, friendly classroom English a real tutor would actually say live.`;
+  const system = `You are a warm, encouraging English coach helping a Japanese-language tutor rehearse the English she uses while teaching her own students in English. ${context}
+She heard a Japanese line describing what she wants to say or explain, and tried to say the English version out loud; her answer was captured by speech-to-text, so minor transcription glitches (missing articles, homophones, punctuation) may not reflect a real mistake — use judgment.
+Always respond in English, in a natural SPOKEN style (1-2 short sentences, like a real coach talking, not written notes or bullet points), since your feedback will be read aloud by text-to-speech.
+The reference is a guide, not the only acceptable answer — accept valid natural alternatives. If she referenced the Japanese example words in romaji, that's fine and natural for a tutor.
+Japanese line: "${japanese}"
+Reference English: "${reference}"
+Respond with ONLY this JSON, nothing else:
+{"score": "perfect" | "good" | "needs_improvement", "feedback": "short spoken-style coaching feedback", "corrected_sentence": "the best natural English version", "encouragement": "a short upbeat phrase"}`;
+  return callClaude(system, `The learner's spoken answer was: "${userAnswer}"`);
+}
+
 // --- Speech recognition ---
 // Some browsers occasionally never fire onend/onerror after recog.start(),
 // leaving the UI stuck on "listening" forever. A hard timeout guarantees
@@ -381,13 +427,18 @@ function savePronData(data) {
 
 export default function ShunkanEisakubunCoach() {
   const [stage, setStage] = useState("onboarding");
-  const [mode, setMode] = useState("practice"); // "practice" | "scenario" | "pronunciation"
+  const [mode, setMode] = useState("practice"); // "practice" | "lesson" | "scenario" | "pronunciation"
   const [scenarioKey, setScenarioKey] = useState("greeting");
   const [settings, setSettings] = useState({ level: "中級", topic: "日常会話" });
   const [deck, setDeck] = useState([]);
   const [stats, setStats] = useState({ totalReviewed: 0, streak: 0, lastDate: null });
   const [loaded, setLoaded] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+
+  // 課別レッスンモードの選択状態
+  const [lessonId, setLessonId] = useState("lesson13");
+  const [lessonActivity, setLessonActivity] = useState("explain"); // "explain" | "run"
+  const [lessonPointId, setLessonPointId] = useState("all");
 
   const [greetingText, setGreetingText] = useState("");
   const queueRef = useRef([]);
@@ -502,6 +553,7 @@ export default function ShunkanEisakubunCoach() {
       return;
     }
 
+    // 事前に用意されたカード(レッスン/復習)はそのまま提示
     setCurrentCard(item.card);
     setCurrentType(item.type);
     setPhase("prompt");
@@ -516,7 +568,9 @@ export default function ShunkanEisakubunCoach() {
     setPhase("evaluating");
     const attempt = async () => {
       try {
-        const result = mode === "scenario"
+        const result = mode === "lesson"
+          ? await evaluateLessonAnswer(currentCard.japanese, currentCard.english_correct, answer, lessonActivity, currentCard.pointLabel)
+          : mode === "scenario"
           ? await evaluateScenarioAnswer(currentCard.japanese, currentCard.english_correct, answer, scenarioKey)
           : await evaluateAnswer(currentCard.japanese, currentCard.english_correct, answer);
         setEvalResult(result);
@@ -573,8 +627,8 @@ export default function ShunkanEisakubunCoach() {
     const streak = stats.lastDate === today ? stats.streak : (diff === 1 || stats.lastDate === null ? stats.streak + 1 : 1);
     const nextStats = { totalReviewed: stats.totalReviewed + lessonResults.length, streak, lastDate: today };
 
-    if (mode === "scenario") {
-      // シナリオモードはSRSデッキに保存せず、その場の集計のみ表示
+    // practice以外(課別レッスン/シナリオ)はSRSデッキに保存せず、その場の集計だけ表示
+    if (mode !== "practice") {
       const updatedSummaries = lessonResults.map((r) => ({ ...r, dueInDays: null }));
       setStats(nextStats);
       setSummaries(updatedSummaries);
@@ -602,11 +656,17 @@ export default function ShunkanEisakubunCoach() {
   };
 
   const startGreeting = async () => {
-    const queue = mode === "scenario" ? buildScenarioQueue() : buildLessonQueue(deck);
+    const queue = mode === "scenario" ? buildScenarioQueue()
+      : mode === "lesson" ? buildLessonModeQueue(LESSONS[lessonId], lessonActivity, lessonPointId)
+      : buildLessonQueue(deck);
     queueRef.current = queue;
     setLessonResults([]);
     let text;
-    if (mode === "scenario") {
+    if (mode === "lesson") {
+      const l = LESSONS[lessonId];
+      const act = lessonActivity === "explain" ? "explaining the grammar in English" : "running the class in English";
+      text = `Let's practice ${act} for ${l.label}. ${queue.length} prompt${queue.length > 1 ? "s" : ""} coming up — take your time and speak naturally. Let's begin!`;
+    } else if (mode === "scenario") {
       text = `Let's practice English for "${SCENARIOS[scenarioKey].label}" today. ${queue.length} phrases coming up — let's dive in!`;
     } else {
       const reviewCount = queue.filter((q) => q.type === "review").length;
@@ -695,6 +755,7 @@ export default function ShunkanEisakubunCoach() {
 
   // ---- Onboarding ----
   if (stage === "onboarding") {
+    const lesson = LESSONS[lessonId];
     return (
       <div style={{ background: "#FBF7F0", minHeight: "100vh", fontFamily: "system-ui, sans-serif", color: "#1F2A37" }}>
         <div style={{ maxWidth: 480, margin: "0 auto", padding: "48px 24px 32px" }}>
@@ -708,24 +769,26 @@ export default function ShunkanEisakubunCoach() {
           <p style={{ fontSize: 14.5, lineHeight: 1.7, color: "#4B5563", margin: "0 0 22px" }}>
             {mode === "practice"
               ? "Coach says a Japanese sentence out loud → you answer in English by voice → coach gives feedback → you repeat it. 5 sentences per lesson, with spaced-repetition review."
+              : mode === "lesson"
+              ? "教科書の課を題材に、①文法を初級者に英語で説明する練習と、②練習B・Cを英語で進行する(授業運営)練習ができます。日本語で「何を説明するか／何を言うか」が出るので、英語で声に出して答えましょう。"
               : mode === "scenario"
               ? "オンラインレッスンの場面を選んで、実際に教室で使う英語を瞬間英作文で練習します。1回5問。"
               : "苦手な音を選んで、単語やフレーズを声に出して発音チェック。その場で聞き取り結果がわかります。"}
           </p>
 
-          <div style={{ display: "flex", gap: 8, marginBottom: 24, background: "#F0EAD9", padding: 4, borderRadius: 14 }}>
-            <button onClick={() => setMode("practice")}
-              style={{ flex: 1, padding: "10px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12.5, background: mode === "practice" ? "#1F2A37" : "transparent", color: mode === "practice" ? "#FBF7F0" : "#6B7280" }}>
-              瞬間英作文
-            </button>
-            <button onClick={() => setMode("scenario")}
-              style={{ flex: 1, padding: "10px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12.5, background: mode === "scenario" ? "#1F2A37" : "transparent", color: mode === "scenario" ? "#FBF7F0" : "#6B7280" }}>
-              レッスンシナリオ
-            </button>
-            <button onClick={() => setMode("pronunciation")}
-              style={{ flex: 1, padding: "10px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12.5, background: mode === "pronunciation" ? "#1F2A37" : "transparent", color: mode === "pronunciation" ? "#FBF7F0" : "#6B7280" }}>
-              発音チェック
-            </button>
+          {/* モード切り替え(2×2) */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 24, background: "#F0EAD9", padding: 4, borderRadius: 14 }}>
+            {[
+              ["practice", "瞬間英作文"],
+              ["lesson", "課別レッスン"],
+              ["scenario", "レッスンシナリオ"],
+              ["pronunciation", "発音チェック"],
+            ].map(([key, label]) => (
+              <button key={key} onClick={() => setMode(key)}
+                style={{ padding: "10px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12.5, background: mode === key ? "#1F2A37" : "transparent", color: mode === key ? "#FBF7F0" : "#6B7280" }}>
+                {label}
+              </button>
+            ))}
           </div>
 
           {mode === "practice" ? (
@@ -766,6 +829,54 @@ export default function ShunkanEisakubunCoach() {
                 </div>
               )}
             </>
+          ) : mode === "lesson" ? (
+            <>
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#6B7280", marginBottom: 10 }}>課を選択</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {Object.values(LESSONS).map((l) => (
+                    <button key={l.id} onClick={() => { setLessonId(l.id); setLessonPointId("all"); }}
+                      style={{ textAlign: "left", padding: "13px 16px", borderRadius: 12, border: lessonId === l.id ? "2px solid #D97757" : "1px solid #E5DFD3", background: lessonId === l.id ? "#FBEFE6" : "#FFFFFF", cursor: "pointer" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                        <BookOpen size={15} color={lessonId === l.id ? "#D97757" : "#9CA3AF"} />
+                        <span style={{ fontWeight: 700, fontSize: 15 }}>{l.label}</span>
+                      </div>
+                      <div style={{ fontSize: 11.5, color: "#6B7280", marginTop: 3 }}>{l.subtitle}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#6B7280", marginBottom: 10 }}>練習の種類</div>
+                <div style={{ display: "flex", gap: 8, background: "#F0EAD9", padding: 4, borderRadius: 14 }}>
+                  {[["explain", "① 文法説明"], ["run", "② 授業運営"]].map(([key, label]) => (
+                    <button key={key} onClick={() => setLessonActivity(key)}
+                      style={{ flex: 1, padding: "10px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12.5, background: lessonActivity === key ? "#1F2A37" : "transparent", color: lessonActivity === key ? "#FBF7F0" : "#6B7280" }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ fontSize: 11.5, color: "#9CA3AF", marginTop: 8, lineHeight: 1.6 }}>
+                  {lessonActivity === "explain"
+                    ? "文法ポイントを、初級者にわかるように英語で説明する練習です。"
+                    : "練習B・Cを英語で進行する練習です（指示・質問・訂正・励まし）。"}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 28 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#6B7280", marginBottom: 10 }}>文法ポイント</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {[...lesson.points, { id: "all", label: "①〜③ まとめて練習", subtitle: "各ポイントからランダムに出題" }].map((p) => (
+                    <button key={p.id} onClick={() => setLessonPointId(p.id)}
+                      style={{ textAlign: "left", padding: "12px 16px", borderRadius: 12, border: lessonPointId === p.id ? "2px solid #1F2A37" : "1px solid #E5DFD3", background: lessonPointId === p.id ? "#1F2A37" : "#FFFFFF", color: lessonPointId === p.id ? "#FBF7F0" : "#1F2A37", cursor: "pointer" }}>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>{p.label}</div>
+                      {p.subtitle && <div style={{ fontSize: 11.5, color: lessonPointId === p.id ? "#C9BBA8" : "#9CA3AF", marginTop: 2 }}>{p.subtitle}</div>}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
           ) : mode === "scenario" ? (
             <div style={{ marginBottom: 28 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#6B7280", marginBottom: 10 }}>場面を選択</div>
@@ -802,7 +913,7 @@ export default function ShunkanEisakubunCoach() {
 
           <button onClick={handleStart}
             style={{ width: "100%", padding: "16px", borderRadius: 14, background: "#D97757", color: "#fff", border: "none", fontSize: 16, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 14px rgba(217,119,87,0.35)" }}>
-            {mode === "pronunciation" ? "練習をはじめる" : "Start Lesson"}
+            {mode === "pronunciation" ? "練習をはじめる" : mode === "lesson" ? "レッスンを始める" : "Start Lesson"}
           </button>
         </div>
       </div>
@@ -1033,7 +1144,11 @@ export default function ShunkanEisakubunCoach() {
           <div>
             <div style={{ fontSize: 13.5, fontWeight: 700 }}>Question {currentIndex + 1} of {queueRef.current.length}</div>
             <div style={{ fontSize: 11, color: "#9CA3AF" }}>
-              {mode === "scenario" ? SCENARIOS[scenarioKey].label : `${currentType === "review" ? "🔁 Review" : "✨ New"} · ${settings.level}`}
+              {mode === "scenario"
+                ? SCENARIOS[scenarioKey].label
+                : mode === "lesson"
+                ? `${LESSONS[lessonId].label} · ${lessonActivity === "explain" ? "文法説明" : "授業運営"}`
+                : `${currentType === "review" ? "🔁 Review" : "✨ New"} · ${settings.level}`}
             </div>
           </div>
         </div>
@@ -1080,7 +1195,11 @@ export default function ShunkanEisakubunCoach() {
           {currentCard && phase !== "generating" && phase !== "error" && (
             <div style={{ background: "#FFFFFF", border: "1px solid #E5DFD3", borderRadius: 18, padding: "20px", boxShadow: "0 2px 10px rgba(31,42,55,0.06)" }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: "#D97757", letterSpacing: "0.05em" }}>JAPANESE PROMPT</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#D97757", letterSpacing: "0.05em" }}>
+                  {mode === "lesson"
+                    ? (lessonActivity === "explain" ? "英語で説明してみよう" : "英語で言ってみよう")
+                    : "JAPANESE PROMPT"}
+                </span>
                 {phase === "prompt"
                   ? <span style={{ display: "inline-flex", alignItems: "center", height: 18 }}>
                       {[0,1,2,3].map((i) => <span key={i} className="wave-bar" style={{ animationDelay: `${i * 0.12}s` }} />)}
@@ -1088,7 +1207,10 @@ export default function ShunkanEisakubunCoach() {
                   : <button onClick={() => speak(currentCard.japanese, "ja-JP")} style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF" }}><Volume2 size={16} /></button>
                 }
               </div>
-              <div style={{ fontFamily: "Georgia, serif", fontSize: 21, lineHeight: 1.5, fontWeight: 600 }}>{currentCard.japanese}</div>
+              {mode === "lesson" && currentCard.pointLabel && (
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", marginBottom: 6 }}>{currentCard.pointLabel}</div>
+              )}
+              <div style={{ fontFamily: "Georgia, serif", fontSize: mode === "lesson" ? 18 : 21, lineHeight: 1.5, fontWeight: 600 }}>{currentCard.japanese}</div>
 
               {phase === "await_answer" && (
                 <>
