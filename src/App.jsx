@@ -296,16 +296,26 @@ Respond with ONLY this JSON, nothing else:
 }
 
 // --- Speech recognition ---
+// Some browsers occasionally never fire onend/onerror after recog.start(),
+// leaving the UI stuck on "listening" forever. A hard timeout guarantees
+// we always recover, even if the browser's event never arrives.
+const SPEECH_TIMEOUT_MS = 9000;
+
 function useSpeechInput() {
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [supported, setSupported] = useState(true);
   const recogRef = useRef(null);
+  const timeoutRef = useRef(null);
 
   useEffect(() => {
     const Impl = window.SpeechRecognition || window.webkitSpeechRecognition;
     setSupported(!!Impl);
   }, []);
+
+  const clearSafetyTimeout = () => {
+    if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
+  };
 
   const start = useCallback((lang) => {
     const Impl = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -323,15 +333,28 @@ function useSpeechInput() {
     };
     recog.onerror = (e) => {
       if (e.error === "not-allowed" || e.error === "service-not-allowed") setSupported(false);
+      clearSafetyTimeout();
       setListening(false);
     };
-    recog.onend = () => setListening(false);
+    recog.onend = () => {
+      clearSafetyTimeout();
+      setListening(false);
+    };
     recogRef.current = recog;
     setListening(true);
-    try { recog.start(); } catch { setListening(false); }
+    try { recog.start(); } catch { setListening(false); return; }
+    clearSafetyTimeout();
+    timeoutRef.current = setTimeout(() => {
+      try { recog.stop(); } catch { /* ignore */ }
+      // Force the UI to unstick even if the browser never calls onend at all.
+      setListening(false);
+    }, SPEECH_TIMEOUT_MS);
   }, []);
 
-  const stop = useCallback(() => { recogRef.current?.stop(); }, []);
+  const stop = useCallback(() => {
+    clearSafetyTimeout();
+    try { recogRef.current?.stop(); } catch { /* ignore */ }
+  }, []);
 
   return { listening, transcript, supported, start, stop };
 }
@@ -380,7 +403,9 @@ export default function ShunkanEisakubunCoach() {
   const [lessonResults, setLessonResults] = useState([]);
   const [summaries, setSummaries] = useState([]);
   const [error, setError] = useState(null);
+  const [micHint, setMicHint] = useState(null);
   const failedStepRef = useRef(null);
+  const wasListeningRef = useRef(false);
 
   // Pronunciation practice state
   const [pronCategory, setPronCategory] = useState("v_b");
@@ -413,6 +438,23 @@ export default function ShunkanEisakubunCoach() {
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [phase, evalResult, repeatNote]);
+
+  // Whenever speech recognition transitions from listening -> not listening
+  // (normal end, error, or the hard safety timeout), automatically move the
+  // UI forward instead of leaving it stuck on "listening…".
+  useEffect(() => {
+    const wasListening = wasListeningRef.current;
+    wasListeningRef.current = speech.listening;
+    if (!wasListening || speech.listening) return;
+
+    if (stage === "lesson") {
+      if (phase === "listening") finishListening();
+      else if (phase === "repeating") finishRepeatWithSpeech();
+    } else if (stage === "pron_session" && pronPhase === "listening") {
+      finishPronListening();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [speech.listening]);
 
   const dueCount = deck.filter((c) => c.dueAt <= Date.now()).length;
 
@@ -467,7 +509,7 @@ export default function ShunkanEisakubunCoach() {
     setPhase("await_answer");
   };
 
-  const beginListening = () => { setPhase("listening"); speech.start("en-US"); };
+  const beginListening = () => { setMicHint(null); setPhase("listening"); speech.start("en-US"); };
 
   const submitAnswer = async (answer) => {
     setLastAnswer(answer);
@@ -493,10 +535,15 @@ export default function ShunkanEisakubunCoach() {
   const finishListening = () => {
     speech.stop();
     const finalAnswer = speech.transcript.trim();
-    if (finalAnswer) submitAnswer(finalAnswer);
+    if (finalAnswer) {
+      submitAnswer(finalAnswer);
+    } else {
+      setMicHint("うまく聞き取れませんでした。もう一度タップして話してみてください。");
+      setPhase("await_answer");
+    }
   };
 
-  const beginRepeat = () => { setPhase("repeating"); speech.start("en-US"); };
+  const beginRepeat = () => { setMicHint(null); setPhase("repeating"); speech.start("en-US"); };
 
   const recordResult = (note) => {
     setRepeatNote(note);
@@ -890,11 +937,11 @@ export default function ShunkanEisakubunCoach() {
                   <div style={{ minHeight: 24, fontSize: 15, marginBottom: 12, fontStyle: speech.transcript ? "normal" : "italic", color: speech.transcript ? "#1F2A37" : "#9CA3AF" }}>
                     {speech.transcript || "聞き取り中…"}
                   </div>
-                  <button onClick={finishPronListening} disabled={!speech.transcript.trim()}
-                    style={{ width: 56, height: 56, borderRadius: "50%", background: speech.transcript.trim() ? "#1F2A37" : "#E5DFD3", border: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: speech.transcript.trim() ? "pointer" : "default" }}>
+                  <button onClick={finishPronListening}
+                    style={{ width: 56, height: 56, borderRadius: "50%", background: "#1F2A37", border: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                     <Square size={18} color="#fff" fill="#fff" />
                   </button>
-                  <div style={{ fontSize: 12.5, color: "#9CA3AF", marginTop: 8 }}>言い終わったらタップ</div>
+                  <div style={{ fontSize: 12.5, color: "#9CA3AF", marginTop: 8 }}>言い終わったらタップ(反応がない場合も自動で先に進みます)</div>
                 </div>
               )}
 
@@ -1051,6 +1098,9 @@ export default function ShunkanEisakubunCoach() {
                   </button>
                   {speech.supported ? (
                     <div style={{ textAlign: "center", marginTop: 22 }}>
+                      {micHint && (
+                        <div style={{ fontSize: 12.5, color: "#C9694F", marginBottom: 10 }}>{micHint}</div>
+                      )}
                       <button onClick={beginListening} className="mic-pulse"
                         style={{ width: 64, height: 64, borderRadius: "50%", background: "#D97757", border: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                         <Mic size={26} color="#fff" />
@@ -1070,11 +1120,11 @@ export default function ShunkanEisakubunCoach() {
                   <div style={{ minHeight: 28, fontSize: 16, marginBottom: 14, fontStyle: speech.transcript ? "normal" : "italic", color: speech.transcript ? "#1F2A37" : "#9CA3AF" }}>
                     {speech.transcript || "Listening…"}
                   </div>
-                  <button onClick={finishListening} disabled={!speech.transcript.trim()}
-                    style={{ width: 64, height: 64, borderRadius: "50%", background: speech.transcript.trim() ? "#1F2A37" : "#E5DFD3", border: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: speech.transcript.trim() ? "pointer" : "default" }}>
+                  <button onClick={finishListening}
+                    style={{ width: 64, height: 64, borderRadius: "50%", background: "#1F2A37", border: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
                     <Square size={20} color="#fff" fill="#fff" />
                   </button>
-                  <div style={{ fontSize: 12.5, color: "#9CA3AF", marginTop: 8 }}>Tap when you're done</div>
+                  <div style={{ fontSize: 12.5, color: "#9CA3AF", marginTop: 8 }}>Tap when you're done (auto-advances if nothing is heard)</div>
                 </div>
               )}
             </div>
