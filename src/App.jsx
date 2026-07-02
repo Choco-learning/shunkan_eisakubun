@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Flame, Mic, Square, Volume2, Repeat, CheckCircle2,
   AlertCircle, Sparkles, Settings2, X, ChevronRight,
-  Lightbulb,
+  Lightbulb, RotateCcw, SkipForward,
 } from "lucide-react";
 
 const LEVELS = {
@@ -75,12 +75,76 @@ const SCENARIOS = {
   },
 };
 
+// --- Pronunciation practice content ---
+const PRONUNCIATION_CATEGORIES = {
+  v_b: {
+    label: "v / b",
+    desc: "唇を閉じて出すbと、上の前歯を下唇に当てて出すvの区別",
+    color: "#2F7A78",
+    items: [
+      { word: "verb", ipa: "/vɜːrb/", note: "動詞" },
+      { word: "very", ipa: "/ˈveri/", note: "とても" },
+      { word: "vote", ipa: "/voʊt/", note: "投票する" },
+      { word: "voice", ipa: "/vɔɪs/", note: "声" },
+      { word: "move", ipa: "/muːv/", note: "動く" },
+      { word: "believe", ipa: "/bɪˈliːv/", note: "信じる" },
+      { word: "favorite", ipa: "/ˈfeɪvərɪt/", note: "お気に入りの" },
+      { word: "invite", ipa: "/ɪnˈvaɪt/", note: "招待する" },
+    ],
+  },
+  r_l: {
+    label: "r / l",
+    desc: "舌をどこにも触れさせないrと、舌先を上あごに当てるlの区別",
+    color: "#3B5FA0",
+    items: [
+      { word: "right", ipa: "/raɪt/", note: "正しい" },
+      { word: "light", ipa: "/laɪt/", note: "光・軽い" },
+      { word: "road", ipa: "/roʊd/", note: "道" },
+      { word: "load", ipa: "/loʊd/", note: "積み荷" },
+      { word: "free", ipa: "/friː/", note: "自由な" },
+      { word: "fly", ipa: "/flaɪ/", note: "飛ぶ" },
+      { word: "world", ipa: "/wɜːrld/", note: "世界" },
+      { word: "really", ipa: "/ˈriːəli/", note: "本当に" },
+    ],
+  },
+  th: {
+    label: "th",
+    desc: "舌を上下の歯の間に軽く挟んで出すthの音(this / think)",
+    color: "#A8546B",
+    items: [
+      { word: "think", ipa: "/θɪŋk/", note: "考える" },
+      { word: "this", ipa: "/ðɪs/", note: "これ" },
+      { word: "three", ipa: "/θriː/", note: "3" },
+      { word: "mother", ipa: "/ˈmʌðər/", note: "母" },
+      { word: "both", ipa: "/boʊθ/", note: "両方" },
+      { word: "though", ipa: "/ðoʊ/", note: "だけれど" },
+      { word: "birthday", ipa: "/ˈbɜːrθdeɪ/", note: "誕生日" },
+      { word: "without", ipa: "/wɪˈðaʊt/", note: "〜なしで" },
+    ],
+  },
+  phrases: {
+    label: "つながる音",
+    desc: "単語同士がつながって聞こえる、決まり文句のリズム",
+    color: "#8C6B3E",
+    items: [
+      { word: "part ways", ipa: "/pɑːrt weɪz/", note: "決別する、別々の道を行く" },
+      { word: "kind of", ipa: "/kaɪnd əv/", note: "なんとなく" },
+      { word: "a lot of", ipa: "/ə lɒt əv/", note: "たくさんの" },
+      { word: "first of all", ipa: "/fɜːrst əv ɔːl/", note: "まず最初に" },
+      { word: "used to", ipa: "/juːst tə/", note: "以前は〜だった" },
+      { word: "next to", ipa: "/nekst tə/", note: "〜の隣に" },
+      { word: "sort of", ipa: "/sɔːrt əv/", note: "ある意味" },
+    ],
+  },
+};
+
 const SCORE_META = {
   perfect: { label: "Perfect", color: "#7A8B6F", Icon: CheckCircle2 },
   good: { label: "Good", color: "#C9A04A", Icon: CheckCircle2 },
   needs_improvement: { label: "Almost", color: "#C9694F", Icon: AlertCircle },
 };
 const DATA_KEY = "shunkan_coach_data_v2";
+const PRON_DATA_KEY = "shunkan_coach_pron_v1";
 const QUESTIONS_PER_LESSON = 5;
 
 function todayStr() {
@@ -129,6 +193,29 @@ function similarity(a, b) {
   const setB = new Set(wb);
   const overlap = wa.filter((w) => setB.has(w)).length;
   return overlap / Math.max(wa.length, wb.length);
+}
+
+// --- Pronunciation matching helpers ---
+function normalizeWords(s) {
+  return s.toLowerCase().replace(/[^a-z0-9' ]/g, "").trim().split(/\s+/).filter(Boolean);
+}
+function checkPronunciation(transcript, target) {
+  const heard = normalizeWords(transcript);
+  const want = normalizeWords(target);
+  if (!heard.length || !want.length) return false;
+  if (want.length === 1) return heard.includes(want[0]);
+  const heardSet = new Set(heard);
+  const matched = want.filter((w) => heardSet.has(w)).length;
+  return matched / want.length >= 0.8;
+}
+function categoryAccuracy(key, data) {
+  const items = PRONUNCIATION_CATEGORIES[key].items;
+  let attempts = 0, correct = 0;
+  items.forEach((it) => {
+    const r = data[it.word];
+    if (r) { attempts += r.attempts; correct += r.correct; }
+  });
+  return attempts > 0 ? correct / attempts : null;
 }
 
 function speak(text, lang) {
@@ -259,10 +346,19 @@ function loadData() {
 function saveData(deck, stats, settings) {
   try { localStorage.setItem(DATA_KEY, JSON.stringify({ deck, stats, settings })); } catch { /* ignore */ }
 }
+function loadPronData() {
+  try {
+    const raw = localStorage.getItem(PRON_DATA_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+function savePronData(data) {
+  try { localStorage.setItem(PRON_DATA_KEY, JSON.stringify(data)); } catch { /* ignore */ }
+}
 
 export default function ShunkanEisakubunCoach() {
   const [stage, setStage] = useState("onboarding");
-  const [mode, setMode] = useState("practice"); // "practice" | "scenario"
+  const [mode, setMode] = useState("practice"); // "practice" | "scenario" | "pronunciation"
   const [scenarioKey, setScenarioKey] = useState("greeting");
   const [settings, setSettings] = useState({ level: "中級", topic: "日常会話" });
   const [deck, setDeck] = useState([]);
@@ -286,6 +382,14 @@ export default function ShunkanEisakubunCoach() {
   const [error, setError] = useState(null);
   const failedStepRef = useRef(null);
 
+  // Pronunciation practice state
+  const [pronCategory, setPronCategory] = useState("v_b");
+  const [pronQueue, setPronQueue] = useState([]);
+  const [pronIndex, setPronIndex] = useState(0);
+  const [pronPhase, setPronPhase] = useState("ready"); // "ready" | "listening" | "result"
+  const [pronResults, setPronResults] = useState([]);
+  const [pronData, setPronData] = useState({});
+
   const speech = useSpeechInput();
   const scrollRef = useRef(null);
 
@@ -301,6 +405,8 @@ export default function ShunkanEisakubunCoach() {
       }
       setStats({ ...(saved.stats || {}), streak, totalReviewed: saved.stats?.totalReviewed || 0 });
     }
+    const savedPron = loadPronData();
+    if (savedPron) setPronData(savedPron);
     setLoaded(true);
   }, []);
 
@@ -474,6 +580,70 @@ export default function ShunkanEisakubunCoach() {
 
   const beginLesson = () => { setStage("lesson"); startQuestion(0); };
 
+  // ---- Pronunciation practice ----
+  const pickPronQueue = (categoryKey, data) => {
+    const items = PRONUNCIATION_CATEGORIES[categoryKey].items;
+    const scored = items.map((it) => {
+      const rec = data[it.word];
+      const acc = rec && rec.attempts > 0 ? rec.correct / rec.attempts : 0.4;
+      return { it, score: acc + Math.random() * 0.35 };
+    });
+    scored.sort((a, b) => a.score - b.score);
+    const count = Math.min(8, items.length);
+    return scored.slice(0, count).map((s) => s.it);
+  };
+
+  const startPronSession = () => {
+    setPronQueue(pickPronQueue(pronCategory, pronData));
+    setPronIndex(0);
+    setPronResults([]);
+    setPronPhase("ready");
+    setStage("pron_session");
+  };
+
+  const beginPronListening = () => {
+    setPronPhase("listening");
+    speech.start("en-US");
+  };
+
+  const finishPronListening = () => {
+    speech.stop();
+    const transcript = speech.transcript.trim();
+    const target = pronQueue[pronIndex].word;
+    const passed = checkPronunciation(transcript, target);
+    setPronResults((prev) => [...prev, { word: target, transcript, passed }]);
+    setPronPhase("result");
+  };
+
+  const retryPronItem = () => {
+    setPronResults((prev) => prev.slice(0, -1));
+    setPronPhase("ready");
+  };
+
+  const finishPronSession = () => {
+    const nextData = { ...pronData };
+    for (const r of pronResults) {
+      const rec = nextData[r.word] || { attempts: 0, correct: 0 };
+      rec.attempts += 1;
+      if (r.passed) rec.correct += 1;
+      nextData[r.word] = rec;
+    }
+    setPronData(nextData);
+    savePronData(nextData);
+    setStage("pron_summary");
+  };
+
+  const nextPronItem = () => {
+    const next = pronIndex + 1;
+    if (next >= pronQueue.length) finishPronSession();
+    else { setPronIndex(next); setPronPhase("ready"); }
+  };
+
+  const handleStart = () => {
+    if (mode === "pronunciation") startPronSession();
+    else startGreeting();
+  };
+
   if (!loaded) return <div style={{ background: "#FBF7F0", minHeight: "100vh" }} />;
 
   // ---- Onboarding ----
@@ -491,17 +661,23 @@ export default function ShunkanEisakubunCoach() {
           <p style={{ fontSize: 14.5, lineHeight: 1.7, color: "#4B5563", margin: "0 0 22px" }}>
             {mode === "practice"
               ? "Coach says a Japanese sentence out loud → you answer in English by voice → coach gives feedback → you repeat it. 5 sentences per lesson, with spaced-repetition review."
-              : "オンラインレッスンの場面を選んで、実際に教室で使う英語を瞬間英作文で練習します。1回5問。"}
+              : mode === "scenario"
+              ? "オンラインレッスンの場面を選んで、実際に教室で使う英語を瞬間英作文で練習します。1回5問。"
+              : "苦手な音を選んで、単語やフレーズを声に出して発音チェック。その場で聞き取り結果がわかります。"}
           </p>
 
           <div style={{ display: "flex", gap: 8, marginBottom: 24, background: "#F0EAD9", padding: 4, borderRadius: 14 }}>
             <button onClick={() => setMode("practice")}
-              style={{ flex: 1, padding: "10px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 13, background: mode === "practice" ? "#1F2A37" : "transparent", color: mode === "practice" ? "#FBF7F0" : "#6B7280" }}>
+              style={{ flex: 1, padding: "10px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12.5, background: mode === "practice" ? "#1F2A37" : "transparent", color: mode === "practice" ? "#FBF7F0" : "#6B7280" }}>
               瞬間英作文
             </button>
             <button onClick={() => setMode("scenario")}
-              style={{ flex: 1, padding: "10px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 13, background: mode === "scenario" ? "#1F2A37" : "transparent", color: mode === "scenario" ? "#FBF7F0" : "#6B7280" }}>
+              style={{ flex: 1, padding: "10px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12.5, background: mode === "scenario" ? "#1F2A37" : "transparent", color: mode === "scenario" ? "#FBF7F0" : "#6B7280" }}>
               レッスンシナリオ
+            </button>
+            <button onClick={() => setMode("pronunciation")}
+              style={{ flex: 1, padding: "10px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12.5, background: mode === "pronunciation" ? "#1F2A37" : "transparent", color: mode === "pronunciation" ? "#FBF7F0" : "#6B7280" }}>
+              発音チェック
             </button>
           </div>
 
@@ -543,7 +719,7 @@ export default function ShunkanEisakubunCoach() {
                 </div>
               )}
             </>
-          ) : (
+          ) : mode === "scenario" ? (
             <div style={{ marginBottom: 28 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#6B7280", marginBottom: 10 }}>場面を選択</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -556,11 +732,30 @@ export default function ShunkanEisakubunCoach() {
                 ))}
               </div>
             </div>
+          ) : (
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "#6B7280", marginBottom: 10 }}>練習する音を選択</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {Object.entries(PRONUNCIATION_CATEGORIES).map(([key, c]) => {
+                  const acc = categoryAccuracy(key, pronData);
+                  return (
+                    <button key={key} onClick={() => setPronCategory(key)}
+                      style={{ textAlign: "left", padding: "13px 16px", borderRadius: 12, border: pronCategory === key ? `2px solid ${c.color}` : "1px solid #E5DFD3", background: pronCategory === key ? `${c.color}14` : "#FFFFFF", cursor: "pointer" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ fontWeight: 700, fontSize: 15 }}>{c.label}</div>
+                        {acc != null && <div style={{ fontSize: 11, color: "#9CA3AF" }}>正答率 {Math.round(acc * 100)}%</div>}
+                      </div>
+                      <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>{c.desc}</div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           )}
 
-          <button onClick={startGreeting}
+          <button onClick={handleStart}
             style={{ width: "100%", padding: "16px", borderRadius: 14, background: "#D97757", color: "#fff", border: "none", fontSize: 16, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 14px rgba(217,119,87,0.35)" }}>
-            Start Lesson
+            {mode === "pronunciation" ? "練習をはじめる" : "Start Lesson"}
           </button>
         </div>
       </div>
@@ -625,6 +820,148 @@ export default function ShunkanEisakubunCoach() {
             style={{ width: "100%", padding: "15px", borderRadius: 14, background: "#1F2A37", color: "#FBF7F0", border: "none", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
             Done
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ---- Pronunciation session ----
+  if (stage === "pron_session") {
+    const cat = PRONUNCIATION_CATEGORIES[pronCategory];
+    const item = pronQueue[pronIndex];
+    const lastResult = pronResults[pronResults.length - 1];
+    return (
+      <div style={{ background: "#FBF7F0", minHeight: "100vh", display: "flex", flexDirection: "column", fontFamily: "system-ui, sans-serif", color: "#1F2A37" }}>
+        <style>{`
+          @keyframes pulseRing { 0%{box-shadow:0 0 0 0 rgba(217,119,87,0.45)} 70%{box-shadow:0 0 0 14px rgba(217,119,87,0)} 100%{box-shadow:0 0 0 0 rgba(217,119,87,0)} }
+          .mic-pulse{animation:pulseRing 1.6s infinite}
+        `}</style>
+
+        <div style={{ position: "sticky", top: 0, background: "#FBF7F0", borderBottom: "1px solid #E5DFD3", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", zIndex: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ width: 30, height: 30, borderRadius: 8, background: cat.color, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Mic size={15} color="#fff" />
+            </div>
+            <div>
+              <div style={{ fontSize: 13.5, fontWeight: 700 }}>{pronIndex + 1} / {pronQueue.length}</div>
+              <div style={{ fontSize: 11, color: "#9CA3AF" }}>{cat.label} の発音チェック</div>
+            </div>
+          </div>
+          <button onClick={() => setStage("onboarding")} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12.5, color: "#6B7280", fontWeight: 600 }}>
+            終了
+          </button>
+        </div>
+
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 24px", display: "flex", flexDirection: "column", gap: 16, alignItems: "center" }}>
+          <div style={{ width: "100%", maxWidth: 440 }}>
+            <div style={{ background: "#FFFFFF", border: "1px solid #E5DFD3", borderRadius: 18, padding: "24px 20px", boxShadow: "0 2px 10px rgba(31,42,55,0.06)", textAlign: "center" }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: cat.color, letterSpacing: "0.05em" }}>{cat.label.toUpperCase()}</span>
+              <div style={{ fontFamily: "Georgia, serif", fontSize: 30, fontWeight: 700, margin: "10px 0 4px" }}>{item.word}</div>
+              {item.ipa && <div style={{ fontSize: 14, color: "#9CA3AF", marginBottom: 4 }}>{item.ipa}</div>}
+              {item.note && <div style={{ fontSize: 12.5, color: "#6B7280", marginBottom: 8 }}>{item.note}</div>}
+
+              <button onClick={() => speak(item.word, "en-US")}
+                style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: `1px solid ${cat.color}`, color: cat.color, borderRadius: 20, padding: "7px 16px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", marginTop: 8 }}>
+                <Volume2 size={14} /> お手本を聞く
+              </button>
+
+              {pronPhase === "ready" && (
+                speech.supported ? (
+                  <div style={{ marginTop: 22 }}>
+                    <button onClick={beginPronListening} className="mic-pulse"
+                      style={{ width: 60, height: 60, borderRadius: "50%", background: cat.color, border: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+                      <Mic size={24} color="#fff" />
+                    </button>
+                    <div style={{ fontSize: 12.5, color: "#9CA3AF", marginTop: 8 }}>タップして発音してみましょう</div>
+                  </div>
+                ) : (
+                  <div style={{ marginTop: 20 }}>
+                    <p style={{ fontSize: 12.5, color: "#C9694F", marginBottom: 12 }}>このブラウザでは音声認識が使えないため、自動チェックはできません。お手本を聞いて発音を練習してから次へ進みましょう。</p>
+                    <button onClick={nextPronItem}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#1F2A37", color: "#fff", border: "none", borderRadius: 20, padding: "10px 20px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                      <SkipForward size={14} /> 次へ
+                    </button>
+                  </div>
+                )
+              )}
+
+              {pronPhase === "listening" && (
+                <div style={{ marginTop: 22 }}>
+                  <div style={{ minHeight: 24, fontSize: 15, marginBottom: 12, fontStyle: speech.transcript ? "normal" : "italic", color: speech.transcript ? "#1F2A37" : "#9CA3AF" }}>
+                    {speech.transcript || "聞き取り中…"}
+                  </div>
+                  <button onClick={finishPronListening} disabled={!speech.transcript.trim()}
+                    style={{ width: 56, height: 56, borderRadius: "50%", background: speech.transcript.trim() ? "#1F2A37" : "#E5DFD3", border: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: speech.transcript.trim() ? "pointer" : "default" }}>
+                    <Square size={18} color="#fff" fill="#fff" />
+                  </button>
+                  <div style={{ fontSize: 12.5, color: "#9CA3AF", marginTop: 8 }}>言い終わったらタップ</div>
+                </div>
+              )}
+
+              {pronPhase === "result" && lastResult && (
+                <div style={{ marginTop: 20 }}>
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                    {lastResult.passed
+                      ? <><CheckCircle2 size={16} color="#7A8B6F" /><span style={{ color: "#7A8B6F", fontWeight: 700, fontSize: 13 }}>聞き取れました!</span></>
+                      : <><AlertCircle size={16} color="#C9694F" /><span style={{ color: "#C9694F", fontWeight: 700, fontSize: 13 }}>もう少し</span></>}
+                  </div>
+                  <div style={{ padding: "10px 12px", background: "#F7F4EC", borderRadius: 10, fontSize: 13.5, color: "#374151", marginBottom: 16 }}>
+                    認識された発音: 「{lastResult.transcript || "(聞き取れませんでした)"}」
+                  </div>
+                  <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+                    <button onClick={retryPronItem}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#FFFFFF", border: "1px solid #E5DFD3", color: "#1F2A37", borderRadius: 20, padding: "10px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                      <RotateCcw size={14} /> もう一度
+                    </button>
+                    <button onClick={nextPronItem}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 6, background: cat.color, color: "#fff", border: "none", borderRadius: 20, padding: "10px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                      {pronIndex + 1 >= pronQueue.length ? "完了" : "次へ"} <ChevronRight size={14} />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ---- Pronunciation summary ----
+  if (stage === "pron_summary") {
+    const cat = PRONUNCIATION_CATEGORIES[pronCategory];
+    const passedCount = pronResults.filter((r) => r.passed).length;
+    return (
+      <div style={{ background: "#FBF7F0", minHeight: "100vh", fontFamily: "system-ui, sans-serif", color: "#1F2A37" }}>
+        <div style={{ maxWidth: 480, margin: "0 auto", padding: "40px 20px" }}>
+          <div style={{ textAlign: "center", marginBottom: 24 }}>
+            <Sparkles size={26} color={cat.color} />
+            <h2 style={{ fontFamily: "Georgia, serif", fontSize: 24, margin: "8px 0 4px" }}>発音チェック完了</h2>
+            <p style={{ color: "#6B7280", fontSize: 14, margin: 0 }}>{cat.label} · {passedCount} / {pronResults.length} 正解</p>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 28 }}>
+            {pronResults.map((r, i) => (
+              <div key={i} style={{ background: "#fff", border: "1px solid #E5DFD3", borderRadius: 12, padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontFamily: "Georgia, serif", fontSize: 15, fontWeight: 700 }}>{r.word}</div>
+                  <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>聞き取り: 「{r.transcript || "(なし)"}」</div>
+                </div>
+                {r.passed
+                  ? <CheckCircle2 size={18} color="#7A8B6F" />
+                  : <AlertCircle size={18} color="#C9694F" />}
+              </div>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 10 }}>
+            <button onClick={startPronSession}
+              style={{ flex: 1, padding: "15px", borderRadius: 14, background: cat.color, color: "#fff", border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+              もう一度練習
+            </button>
+            <button onClick={() => setStage("onboarding")}
+              style={{ flex: 1, padding: "15px", borderRadius: 14, background: "#1F2A37", color: "#FBF7F0", border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+              終わる
+            </button>
+          </div>
         </div>
       </div>
     );
