@@ -216,13 +216,63 @@ function buildLessonModeQueue(lesson, activity, pointId) {
   }));
 }
 
+// --- あいまい一致ヘルパー ---
+// 音声認識の軽微な聞き間違い(1〜2文字の違い)を許容するための編集距離
+function editDistance(a, b) {
+  const m = a.length, n = b.length;
+  if (!m) return n;
+  if (!n) return m;
+  const dp = Array.from({ length: m + 1 }, (_, i) => {
+    const row = new Array(n + 1).fill(0);
+    row[0] = i;
+    return row;
+  });
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = Math.min(
+        dp[i - 1][j] + 1,
+        dp[i][j - 1] + 1,
+        dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+      );
+    }
+  }
+  return dp[m][n];
+}
+
+// 単語同士が「ほぼ同じ」とみなせるか(長い単語ほど許容度を広げる)
+function wordsAlike(a, b) {
+  if (a === b) return true;
+  const len = Math.max(a.length, b.length);
+  if (len >= 7) return editDistance(a, b) <= 2;
+  if (len >= 4) return editDistance(a, b) <= 1;
+  return false;
+}
+
 function similarity(a, b) {
   const norm = (s) => s.toLowerCase().replace(/[^a-z0-9' ]/g, "").trim().split(/\s+/).filter(Boolean);
   const wa = norm(a), wb = norm(b);
   if (!wa.length || !wb.length) return 0;
-  const setB = new Set(wb);
-  const overlap = wa.filter((w) => setB.has(w)).length;
+  const used = new Array(wb.length).fill(false);
+  let overlap = 0;
+  for (const w of wa) {
+    const idx = wb.findIndex((x, i) => !used[i] && wordsAlike(w, x));
+    if (idx >= 0) { used[idx] = true; overlap += 1; }
+  }
   return overlap / Math.max(wa.length, wb.length);
+}
+
+// 認識候補の中から模範解答に最も近いものを選ぶ
+function pickBestCandidate(candidates, target) {
+  const cands = [...new Set(candidates.map((c) => (c || "").trim()).filter(Boolean))];
+  if (!cands.length) return "";
+  if (!target) return cands[0];
+  let best = cands[0], bestScore = -1;
+  for (const c of cands) {
+    const s = similarity(c, target);
+    if (s > bestScore) { bestScore = s; best = c; }
+  }
+  return best;
 }
 
 // --- Pronunciation matching helpers ---
@@ -350,6 +400,7 @@ const SPEECH_TIMEOUT_MS = 9000;
 function useSpeechInput() {
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState("");
+  const [alternatives, setAlternatives] = useState([]);
   const [supported, setSupported] = useState(true);
   const recogRef = useRef(null);
   const timeoutRef = useRef(null);
@@ -367,15 +418,30 @@ function useSpeechInput() {
     const Impl = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!Impl) { setSupported(false); return; }
     setTranscript("");
+    setAlternatives([]);
     const recog = new Impl();
     recog.lang = lang;
     recog.interimResults = true;
     recog.continuous = false;
-    recog.maxAlternatives = 1;
+    recog.maxAlternatives = 5;
     recog.onresult = (e) => {
       let text = "";
       for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript;
       setTranscript(text);
+      // 認識エンジンが返す第2〜第5候補も収集する。
+      // 各セグメントで候補jが無ければ第1候補で埋めて文をつなぐ。
+      const cands = new Set();
+      for (let j = 0; j < 5; j++) {
+        let t = "";
+        let found = j === 0;
+        for (let i = 0; i < e.results.length; i++) {
+          const alt = e.results[i][j];
+          if (alt) { t += alt.transcript; found = true; }
+          else t += e.results[i][0].transcript;
+        }
+        if (found && t.trim()) cands.add(t.trim());
+      }
+      setAlternatives([...cands]);
     };
     recog.onerror = (e) => {
       if (e.error === "not-allowed" || e.error === "service-not-allowed") setSupported(false);
@@ -402,7 +468,7 @@ function useSpeechInput() {
     try { recogRef.current?.stop(); } catch { /* ignore */ }
   }, []);
 
-  return { listening, transcript, supported, start, stop };
+  return { listening, transcript, alternatives, supported, start, stop };
 }
 
 // --- localStorage helpers (Netlify版はwindow.storageが使えないのでlocalStorageを使う) ---
@@ -588,7 +654,12 @@ export default function ShunkanEisakubunCoach() {
 
   const finishListening = () => {
     speech.stop();
-    const finalAnswer = speech.transcript.trim();
+    // 第1候補だけでなく全候補の中から、模範解答に最も近いものを採用する。
+    // 正しく言えたのに聞き間違いで減点される事故を減らす。
+    const finalAnswer = pickBestCandidate(
+      [speech.transcript, ...speech.alternatives],
+      currentCard?.english_correct
+    );
     if (finalAnswer) {
       submitAnswer(finalAnswer);
     } else {
@@ -607,9 +678,10 @@ export default function ShunkanEisakubunCoach() {
 
   const finishRepeatWithSpeech = () => {
     speech.stop();
-    const said = speech.transcript.trim();
     const target = evalResult.corrected_sentence || currentCard.english_correct;
-    const sim = said ? similarity(said, target) : 0;
+    const candidates = [speech.transcript, ...speech.alternatives]
+      .map((c) => (c || "").trim()).filter(Boolean);
+    const sim = candidates.reduce((m, c) => Math.max(m, similarity(c, target)), 0);
     recordResult(sim > 0.55 ? "Nice, well said! 👏" : "Good effort — keep repeating and it'll come naturally.");
   };
 
@@ -717,7 +789,12 @@ export default function ShunkanEisakubunCoach() {
     speech.stop();
     const transcript = speech.transcript.trim();
     const target = pronQueue[pronIndex].word;
-    const passed = checkPronunciation(transcript, target);
+    // 発音練習は「その単語として認識されたか」自体がテストなので、
+    // 単語の照合は完全一致のまま。ただし第2〜第5候補のどれかに
+    // ターゲット語が含まれていれば合格にする(取りこぼし対策)。
+    const candidates = [transcript, ...speech.alternatives]
+      .map((c) => (c || "").trim()).filter(Boolean);
+    const passed = candidates.some((c) => checkPronunciation(c, target));
     setPronResults((prev) => [...prev, { word: target, transcript, passed }]);
     setPronPhase("result");
   };
