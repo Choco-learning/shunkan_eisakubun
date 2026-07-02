@@ -1040,6 +1040,7 @@ export default function ShunkanEisakubunCoach() {
                   </div>
                   <div style={{ fontFamily: "Georgia, serif", fontSize: 14.5, marginBottom: 3 }}>{s.card.japanese}</div>
                   <div style={{ fontSize: 12.5, color: "#6B7280" }}>{s.corrected_sentence || s.card.english_correct}</div>
+                  {s.userAnswer && <div style={{ fontSize: 12, color: "#9CA3AF", marginTop: 2 }}>あなたの発話: 「{s.userAnswer}」</div>}
                 </div>
               );
             })}
@@ -1344,6 +1345,12 @@ export default function ShunkanEisakubunCoach() {
                   </div>
                 );
               })()}
+              {lastAnswer && (
+                <div style={{ padding: "9px 12px", background: "#FBF7F0", border: "1px dashed #E5DFD3", borderRadius: 10, marginBottom: 10 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", marginBottom: 2 }}>あなたの発話(聞き取り結果)</div>
+                  <div style={{ fontSize: 13.5, color: "#1F2A37" }}>{lastAnswer}</div>
+                </div>
+              )}
               <div style={{ fontSize: 14, lineHeight: 1.6, color: "#374151", marginBottom: 10 }}>{evalResult.feedback}</div>
               <div style={{ padding: "10px 12px", background: "#F7F4EC", borderRadius: 10, fontSize: 14, fontStyle: "italic", color: "#1F2A37", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                 <span>{evalResult.corrected_sentence || currentCard.english_correct}</span>
