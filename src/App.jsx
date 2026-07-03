@@ -622,6 +622,11 @@ export default function ShunkanEisakubunCoach() {
     // 事前に用意されたカード(レッスン/復習)はそのまま提示
     setCurrentCard(item.card);
     setCurrentType(item.type);
+    if (mode === "lesson") {
+      // 課別レッスンは問題文を文字で見せるだけ。日本語の読み上げはしない。
+      setPhase("await_answer");
+      return;
+    }
     setPhase("prompt");
     await speak(item.card.japanese, "ja-JP");
     setPhase("await_answer");
@@ -631,12 +636,25 @@ export default function ShunkanEisakubunCoach() {
 
   const submitAnswer = async (answer) => {
     setLastAnswer(answer);
+
+    if (mode === "lesson") {
+      // 課別レッスンはAIの解説・採点なし。
+      // 聞き取り結果と模範解答だけを見せて、模範解答を読み上げる。
+      const result = {
+        score: null,
+        feedback: null,
+        corrected_sentence: currentCard.english_correct,
+      };
+      setEvalResult(result);
+      setPhase("result");
+      await speak(currentCard.english_correct, "en-US");
+      return;
+    }
+
     setPhase("evaluating");
     const attempt = async () => {
       try {
-        const result = mode === "lesson"
-          ? await evaluateLessonAnswer(currentCard.japanese, currentCard.english_correct, answer, lessonActivity, currentCard.pointLabel)
-          : mode === "scenario"
+        const result = mode === "scenario"
           ? await evaluateScenarioAnswer(currentCard.japanese, currentCard.english_correct, answer, scenarioKey)
           : await evaluateAnswer(currentCard.japanese, currentCard.english_correct, answer);
         setEvalResult(result);
@@ -1024,20 +1042,26 @@ export default function ShunkanEisakubunCoach() {
           <div style={{ textAlign: "center", marginBottom: 24 }}>
             <Sparkles size={26} color="#D97757" />
             <h2 style={{ fontFamily: "Georgia, serif", fontSize: 24, margin: "8px 0 4px" }}>Lesson Complete</h2>
-            <p style={{ color: "#6B7280", fontSize: 14, margin: 0 }}>{correct} / {summaries.length} nailed it</p>
+            <p style={{ color: "#6B7280", fontSize: 14, margin: 0 }}>
+              {mode === "lesson" ? `${summaries.length}問 練習しました` : `${correct} / ${summaries.length} nailed it`}
+            </p>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 28 }}>
             {summaries.map((s, i) => {
-              const meta = SCORE_META[s.score] || SCORE_META.good;
+              const meta = SCORE_META[s.score];
               return (
                 <div key={i} style={{ background: "#fff", border: "1px solid #E5DFD3", borderRadius: 12, padding: "12px 14px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <meta.Icon size={14} color={meta.color} />
-                      <span style={{ fontSize: 12, fontWeight: 700, color: meta.color }}>{meta.label}</span>
+                  {(meta || s.dueInDays != null) && (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                      {meta ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <meta.Icon size={14} color={meta.color} />
+                          <span style={{ fontSize: 12, fontWeight: 700, color: meta.color }}>{meta.label}</span>
+                        </div>
+                      ) : <span />}
+                      {s.dueInDays != null && <span style={{ fontSize: 11.5, color: "#9CA3AF" }}>next review in {s.dueInDays}d</span>}
                     </div>
-                    {s.dueInDays != null && <span style={{ fontSize: 11.5, color: "#9CA3AF" }}>next review in {s.dueInDays}d</span>}
-                  </div>
+                  )}
                   <div style={{ fontFamily: "Georgia, serif", fontSize: 14.5, marginBottom: 3 }}>{s.card.japanese}</div>
                   <div style={{ fontSize: 12.5, color: "#6B7280" }}>{s.corrected_sentence || s.card.english_correct}</div>
                   {s.userAnswer && <div style={{ fontSize: 12, color: "#9CA3AF", marginTop: 2 }}>あなたの発話: 「{s.userAnswer}」</div>}
@@ -1278,7 +1302,9 @@ export default function ShunkanEisakubunCoach() {
                     ? (lessonActivity === "explain" ? "英語で説明してみよう" : "英語で言ってみよう")
                     : "JAPANESE PROMPT"}
                 </span>
-                {phase === "prompt"
+                {mode === "lesson"
+                  ? null
+                  : phase === "prompt"
                   ? <span style={{ display: "inline-flex", alignItems: "center", height: 18 }}>
                       {[0,1,2,3].map((i) => <span key={i} className="wave-bar" style={{ animationDelay: `${i * 0.12}s` }} />)}
                     </span>
@@ -1351,7 +1377,9 @@ export default function ShunkanEisakubunCoach() {
                   <div style={{ fontSize: 13.5, color: "#1F2A37" }}>{lastAnswer}</div>
                 </div>
               )}
-              <div style={{ fontSize: 14, lineHeight: 1.6, color: "#374151", marginBottom: 10 }}>{evalResult.feedback}</div>
+              {evalResult.feedback && (
+                <div style={{ fontSize: 14, lineHeight: 1.6, color: "#374151", marginBottom: 10 }}>{evalResult.feedback}</div>
+              )}
               <div style={{ padding: "10px 12px", background: "#F7F4EC", borderRadius: 10, fontSize: 14, fontStyle: "italic", color: "#1F2A37", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                 <span>{evalResult.corrected_sentence || currentCard.english_correct}</span>
                 <button onClick={() => speak(evalResult.corrected_sentence || currentCard.english_correct, "en-US")}
