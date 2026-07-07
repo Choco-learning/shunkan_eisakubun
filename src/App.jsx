@@ -676,8 +676,6 @@ export default function ShunkanEisakubunCoach() {
           };
           setCurrentCard(item.card);
           setCurrentType(item.type);
-          setPhase("prompt");
-          await speak(item.card.japanese, "ja-JP");
           setPhase("await_answer");
         } catch {
           failedStepRef.current = attempt;
@@ -697,8 +695,6 @@ export default function ShunkanEisakubunCoach() {
       setPhase("await_answer");
       return;
     }
-    setPhase("prompt");
-    await speak(item.card.japanese, "ja-JP");
     setPhase("await_answer");
   };
 
@@ -729,8 +725,10 @@ export default function ShunkanEisakubunCoach() {
           : await evaluateAnswer(currentCard.japanese, currentCard.english_correct, answer);
         setEvalResult(result);
         setPhase("result");
-        await speak(result.feedback, "en-US");
-        await speak(result.corrected_sentence || currentCard.english_correct, "en-US");
+        if (mode !== "scenario") {
+          await speak(result.feedback, "en-US");
+          await speak(result.corrected_sentence || currentCard.english_correct, "en-US");
+        }
       } catch {
         failedStepRef.current = attempt;
         setError("The coach had trouble checking that. Let's retry.");
