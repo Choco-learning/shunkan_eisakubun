@@ -226,7 +226,7 @@ export const LESSONS = {
       },
     ],
   },
-   lesson14: {
+    lesson14: {
     id: "lesson14",
     label: "第14課",
     subtitle: "〈て形〉ください / ましょうか / ています",
@@ -238,18 +238,18 @@ export const LESSONS = {
         explain: [
           { ja: "「te-form + ください」の3つの使い方を説明してください。", en: "Te-form + ください has three uses. First, instructions: write your name here please. Second, requests — say すみませんが first: excuse me, please speak more slowly. Third, invitations — say どうぞ: please come in.", hint: "instructions, requests, invitations" },
           { ja: "「書きます」「飲みます」「食べます」が動詞の3グループに分かれる理由を説明してください。", en: "Japanese verbs have three groups. Look at the sound just before ます. Group 1: the sound is an 'i' sound — like write, drink. Group 2: the sound is an 'e' sound — like eat. Group 3 is special: します, 来ます, and 勉強します.", hint: "sound before ます — i sound, e sound, or special" },
-          { ja: "「き → いて」「み → んで」「し → して」のte形の変化ルールを説明してください。", en: "The te-form rules for Group 1 depend on the final sound. Ki becomes ite — write, wrote becomes wrote. Mi and bi become nde — drink becomes drank. Shi becomes shite — speak becomes speaking.", hint: "ki, mi/bi, shi, i/chi/ri patterns" },
-          { ja: "「行きます → 行って」という例外を説明してください。", en: "One exception: iku, to go. The normal rule would give 'iki-te' but the real form is 'itte'. It is the only exception in Group 1. Just memorize this one.", hint: "exception in Group 1" },
-          { ja: "「漢字の読み方」「コピーの使い方」の「〜方」の意味と作り方を説明してください。", en: "To say 'how to' — how to read, how to use — take off ます and add 方. 'yomi-kata' means how to read. Connect with の: kanji no yomikata. Students sometimes use を, so gently correct it to の.", hint: "masu-stem + 方, connect with の" },
-          { ja: "「もう少し」「もう一杯」のような「もう」の意味を説明してください。", en: "もう + an amount means more. More time — もう少し. One more cup — もう一杯. It is often used in requests: please speak more slowly.", hint: "more time, more quantity" },
+          { ja: "「き → いて」「み → んで」「し → して」のte形の変化ルールを説明してください。", en: "The te-form rules for Group 1 depend on the final sound. き becomes いて — 書きます, 書いて. み and び become んで — 飲みます, 飲んで. し becomes して — 話します, 話して. い, ち, り become って.", hint: "ki, mi/bi, shi, i/chi/ri patterns" },
+          { ja: "「行きます → 行って」という例外を説明してください。", en: "One exception: 行きます, to go. The normal rule would give いきて, but the real form is 行って. It is the only exception in Group 1. Just memorize this one.", hint: "exception in Group 1" },
+          { ja: "「漢字の読み方」「コピーの使い方」の「〜方」の意味と作り方を説明してください。", en: "To say 'how to' — how to read, how to use — take off ます and add 方. yomikata means how to read. Connect with の: kanji no yomikata. Students sometimes use を, so gently correct it to の.", hint: "masu-stem + 方, connect with の" },
+          { ja: "「もう少し」「もう一杯」のような「もう」の意味を説明してください。", en: "もう + an amount means more. More time — もう少し. One more cup — もう一杯. It is often used in requests: please speak a little more slowly.", hint: "more time, more quantity" },
         ],
         run: [
-          { ja: "生徒に「ここに名前と住所を書く」ことを指示してください。", en: "Please write your name and address here.", hint: "instruction form" },
-          { ja: "生徒に「電気を消す」ことを依頼してください。", en: "Excuse me, please turn off the light.", hint: "request with すみませんが" },
-          { ja: "生徒に「どうぞ、この傘を使う」と勧めてください。", en: "Please use this umbrella.", hint: "invitation with どうぞ" },
-          { ja: "生徒に「このボールペンを貸す」ことを依頼してください。", en: "Excuse me, could you lend me this pen for a moment?", hint: "request form" },
-          { ja: "生徒の発言が速いとき、「もう少しゆっくり話す」ことを依頼してください。", en: "Excuse me, please speak a little more slowly.", hint: "もう少しゆっくり話してください" },
-          { ja: "タクシーの運転手に「右に曲がる」ことを指示してください。", en: "Please turn right at that traffic light.", hint: "direction instruction" },
+          { ja: "練習Bを始める。動詞をて形＋くださいに変える練習だと伝え、例（パスポートを見せます→見せてください）を示してから1番を促してください。", en: "Let's do a drill. Change the verb and make a 〜てください sentence. For example, パスポートを見せます becomes パスポートを見せてください. OK, number one, please.", hint: "start drill B-1, show example, call number 1" },
+          { ja: "生徒が「書きてください」と言った。て形が違うことをやさしく訂正して、もう一度言わせてください。", en: "Almost! It's not 書きて — the te-form is 書いて. So, 書いてください. Let's try that once more.", hint: "gentle correction of the te-form" },
+          { ja: "依頼の練習に移る。「すみませんが」で始めるよう指示し、例を示してから1番を促してください。", en: "Now let's practice requests. Start with すみませんが. For example, すみませんが、ちょっと手伝ってください. Your turn — number one, please.", hint: "transition to requests, model すみませんが" },
+          { ja: "勧めの練習に移る。「どうぞ」で始めるよう指示し、例を示してください。", en: "This time, invitations. Begin with どうぞ. For example, どうぞ入ってください. Go ahead, number one.", hint: "transition to invitations, model どうぞ" },
+          { ja: "生徒が黙ってしまった。文の前半を一緒に言って続きを引き出してください（無口対応）。", en: "Let's do it together. ここに名前と住所を…? Go on, you finish it.", hint: "silent-student support, start the sentence together" },
+          { ja: "会話練習（タクシー）に入る。役割を割り振り、まず一緒に読もうと促し、次に役を交代すると伝えてください。", en: "Now a real situation — a taxi. You're Taylor, I'm the driver. Let's read it together first, then we'll switch roles.", hint: "set up the role-play, assign roles, then swap" },
         ],
       },
       {
@@ -262,10 +262,10 @@ export const LESSONS = {
           { ja: "「ましょうか」のイントネーションが重要だと説明してください。", en: "Intonation matters. Masu-form + ましょうか rises at the end, like a question. If you lower it, it sounds like you already decided. Model the rising intonation clearly.", hint: "rising intonation, question tone" },
         ],
         run: [
-          { ja: "生徒に「コーヒーを買う」ことを申し出てください。", en: "Shall I buy you some coffee?", hint: "offer to help" },
-          { ja: "生徒に「窓を開ける」ことを申し出て、「少し開けてください」と指定されたら対応してください。", en: "Shall I open the window? / Yes, please open it a little.", hint: "offer with condition" },
-          { ja: "生徒に「駅まで迎えに行く」ことを申し出て、「いいえ、けっこうです」と断られてください。", en: "Shall I pick you up at the station? / No, thank you.", hint: "offer and polite decline" },
-          { ja: "生徒に「地図を書く」ことを申し出てください。", en: "Shall I draw you a map?", hint: "offer to draw" },
+          { ja: "「ましょうか」の練習Bを始める。動詞を「〜ましょうか」に変えて申し出る練習だと伝え、例（荷物を持ちます→荷物を持ちましょうか）を示してください。", en: "Let's practice offering help. Change the verb to 〜ましょうか. For example, 荷物を持ちます becomes 荷物を持ちましょうか. Ready? Number one, please.", hint: "start offer drill, show example, call number 1" },
+          { ja: "生徒の「ましょうか」が下がり調子だった。質問のように語尾を上げるよう、やさしく直してもう一度言わせてください。", en: "Nice! One small thing — let it rise at the end, like a question: 持ちましょうか? Try it once more.", hint: "correct falling intonation, model rising" },
+          { ja: "受け答えの練習に移る。あなたが申し出るので、生徒に「ええ、お願いします」で受けるよう指示してください。", en: "Now let's do a mini-exchange. I'll make an offer, and you accept with ええ、お願いします. Here we go.", hint: "set up accept-response practice" },
+          { ja: "今度は生徒に「いいえ、けっこうです」で丁寧に断るよう指示し、笑顔を添えるとよいと伝えてください。", en: "This time, decline politely with いいえ、けっこうです. Add a smile so it sounds warm. Ready?", hint: "set up polite-decline practice, add warmth tip" },
         ],
       },
       {
@@ -274,18 +274,19 @@ export const LESSONS = {
         subtitle: "今していること（progressive action）",
         explain: [
           { ja: "「te形 + います」の意味を説明してください。", en: "Te-form + います means an action happening right now. Taylor is making a phone call now. The question is 何をしていますか — what are you doing? The negative is ていません — not doing.", hint: "action happening now, progressive" },
-          { ja: "「今、雨が降っていますか」に対して「はい、降っています」と「はい、います」の違いを説明してください。", en: "Important: answer with the same verb. 'Is it raining?' 'Yes, it is raining' — はい、降っています. Not はい、います. Repeat the verb: 降っています or 降っていません.", hint: "repeat the verb in answer" },
+          { ja: "「今、雨が降っていますか」に対して「はい、降っています」と「はい、います」の違いを説明してください。", en: "Important: answer with the same verb. Is it raining? Yes, it is raining — はい、降っています. Not はい、います. Repeat the verb: 降っています or 降っていません.", hint: "repeat the verb in the answer" },
           { ja: "「読みます」と「読んでいます」の時間的な違いを説明してください。", en: "読みます talks about the future or a habit. 読んでいます means the action is happening right now. For example, レポートを書いています means I'm writing the report at this moment.", hint: "future/habit vs now" },
         ],
         run: [
-          { ja: "生徒に「コーヒーを飲んでいる」ことを述べてください。", en: "He is drinking coffee right now.", hint: "present progressive" },
-          { ja: "生徒に「何をしていますか」と聞いて、「日本語を勉強しています」と答えてください。", en: "What are you doing right now? / I'm studying Japanese.", hint: "question and answer" },
-          { ja: "生徒に「今、雨が降っていますか」と聞いてください。", en: "Is it raining right now?", hint: "weather question" },
-          { ja: "生徒に「キムさんはどこで昼ごはんを食べていますか」と聞いてください。", en: "Where is Ms. Kim eating lunch right now?", hint: "where question" },
-          { ja: "生徒に「誰と話していますか」と聞いてください。", en: "Who is he talking with right now?", hint: "who question" },
+          { ja: "「〜ています」の練習Bを始める。「今、何をしていますか」に絵や語を見て「〜ています」で答える練習だと伝え、例（コーヒーを飲みます→コーヒーを飲んでいます）を示してください。", en: "Let's practice. I'll ask 何をしていますか, and you answer with 〜ています. For example, コーヒーを飲みます becomes コーヒーを飲んでいます. Number one, please.", hint: "start ています drill, show example" },
+          { ja: "生徒が「はい、います」と答えた。動詞を繰り返して「はい、降っています」と言うよう、やさしく訂正してください。", en: "Close! Repeat the verb instead: not はい、います, but はい、降っています. Let's try again.", hint: "correct はい、います, repeat the verb" },
+          { ja: "生徒が黙ってしまった。ペンを持って書くふりをし、「何をしていますか」と聞いて、必要なら自分で「レポートを書いています」と答えてみせてください（無口対応）。", en: "Let me act it out — look, I'm holding a pen. 何をしていますか? … レポートを書いています. Now you try one.", hint: "silent-student support, act out and model" },
+          { ja: "生徒がうまく言えたので、はっきり褒めて次の問題へ進めてください。", en: "That was great — really natural! Let's move on to the next one.", hint: "praise and move on" },
+          { ja: "練習を締める。よくできたと伝え、今日のゴール（今していることが言える）を確認してから次へ進むと伝えてください。", en: "Nice work today. You can now say what someone is doing right now. Let's check that off and keep going.", hint: "wrap up, confirm the can-do, transition" },
         ],
       },
     ],
   },
+
 
 };
