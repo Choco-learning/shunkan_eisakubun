@@ -31,6 +31,391 @@
 // ============================================================
 
 export const LESSONS = {
+    lesson1: {
+    id: "lesson1",
+    label: "第1課",
+    subtitle: "Nです / じゃありません / ですか・だれ / NのN / も / 〜歳",
+    points: [
+      // ---------------------------------------------------
+      // 文法① N₁はN₂です(名前・国・仕事)
+      // ---------------------------------------------------
+      {
+        id: "g1",
+        label: "① N₁はN₂です",
+        subtitle: "name / nationality / job",
+        explain: [
+          {
+            ja: "「は」が主題を表し、「です」が文末につくという基本の形を、初級者にわかるように英語で説明する",
+            en: "は marks the topic — the person we're talking about. です comes at the end, and it works like am, is, or are. So the pattern is: topic, plus は, plus a word, plus です.",
+            hint: "topic marker + です = am/is/are",
+          },
+          {
+            ja: "「は」は「は」と書くが「わ」と読むことを英語で説明する",
+            en: "One thing to watch: the topic marker is written は, but here we read it 'wa,' not 'ha.' It's the only word like this, so just remember it.",
+            hint: "written は, read 'wa'",
+          },
+          {
+            ja: "国籍の言い方(国の名前＋人)を、例を挙げて英語で説明する",
+            en: "For a nationality, just add 人 after the country name. アメリカ plus 人 is アメリカ人 — American. So テイラーさんはアメリカ人です means 'Mr. Taylor is American.'",
+            hint: "country + 人",
+          },
+          {
+            ja: "仕事の言い方(「です」の前に職業を置く)を、例を挙げて英語で説明する",
+            en: "For a job, just put the job before です. テイラーさんは会社員です — 'Mr. Taylor is a company employee.' The pattern doesn't change at all.",
+            hint: "job goes before です",
+          },
+          {
+            ja: "他の人の職業には「先生」、自分の職業には「教師」を使うことを英語で説明する",
+            en: "One small point about teachers. When you talk about someone else, you say 先生. But for your own job, you say 教師. You don't call yourself 先生.",
+            hint: "先生 for others, 教師 for yourself",
+          },
+          {
+            ja: "「あなた」は語彙としては習うが、名前がわかっているときは名前を使うことを英語で説明する",
+            en: "あなた means 'you,' but in real conversation Japanese people rarely use it when they know your name. They use the name instead — テイラーさんは会社員ですか. Learn the word, but use names.",
+            hint: "use the name, not あなた",
+          },
+          {
+            ja: "自己紹介の3文セット(名前・出身・仕事)の型を英語で説明する",
+            en: "For a self-introduction, you can use three short sentences: 私はテイラーです — I'm Taylor. アメリカから来ました — I'm from America. 会社員です — I'm a company employee. Name, country, job.",
+            hint: "name → 〜から来ました → job",
+          },
+        ],
+        run: [
+          {
+            ja: "練習B(国)を始める。やり方を説明して、例を見せる",
+            en: "Okay, let's practice. Look at the cue and make a sentence. For example, テイラーさん and アメリカ人 becomes テイラーさんはアメリカ人です — 'Mr. Taylor is American.' Ready? Number one.",
+            hint: "look at the cue and make a sentence",
+          },
+          {
+            ja: "生徒が黙ってしまったので、文の前半を一緒に言って続きを待つ",
+            en: "Let's start it together. グプタさんは... and then? Take your time.",
+            hint: "start the sentence together, then wait",
+          },
+          {
+            ja: "生徒がまだ答えられないので、二択にして助ける",
+            en: "No problem, let's make it easier. Is he インド人 or アメリカ人? Just pick one.",
+            hint: "give two choices",
+          },
+          {
+            ja: "生徒が「テイラーさんアメリカ人です」と「は」を落としたので、やさしく直して言い直させる",
+            en: "Very close! You just need the topic marker. テイラーさん... は... アメリカ人です. Can you try the whole sentence again?",
+            hint: "gently name the missing piece, then have them repeat",
+          },
+          {
+            ja: "練習B(仕事)に移る。同じやり方だと伝えて例を見せる",
+            en: "Great. Now let's do the same thing with jobs. Example: テイラーさん and 会社員 becomes テイラーさんは会社員です. Let's start with number one — ワンさん.",
+            hint: "signal the switch, show one example",
+          },
+          {
+            ja: "練習Cの自己紹介の会話を導入する。まず聞かせて、そのあと生徒がAをやると伝える",
+            en: "Now a short conversation. Listen first, then you'll be A. はじめまして。テイラーです。アメリカから来ました。どうぞよろしく。Okay — now you're A. Introduce yourself the same way.",
+            hint: "listen first, then swap roles",
+          },
+          {
+            ja: "Talk about yourselfに入る。無口な生徒のために、まず自分が例を見せる",
+            en: "Now tell me about yourself — your name, your country, and your job. I'll go first. 私はヒカリです。日本から来ました。教師です。Okay, your turn.",
+            hint: "model it yourself first",
+          },
+          {
+            ja: "生徒が正しく言えたのでほめて、Can-do checkに進む",
+            en: "That was perfect — really natural. Let's check today's goal. Can you say your name, your nationality, and your job? I think you just did!",
+            hint: "praise, then move to the can-do check",
+          },
+        ],
+      },
+
+      // ---------------------------------------------------
+      // 文法② N₁はN₂じゃありません
+      // ---------------------------------------------------
+      {
+        id: "g2",
+        label: "② N₁はN₂じゃありません",
+        subtitle: "is not",
+        explain: [
+          {
+            ja: "「じゃありません」が「です」の否定であることを英語で説明する",
+            en: "じゃありません is simply the negative of です. It means 'is not.' The rest of the sentence doesn't change — you just swap です for じゃありません.",
+            hint: "negative of です — same word order",
+          },
+          {
+            ja: "「じゃありません」と「ではありません」の使い分けを英語で説明する",
+            en: "You'll hear two forms. じゃありません is for everyday conversation. ではありません is more formal — you use it in writing or in a speech. For now, じゃありません is fine.",
+            hint: "じゃ = spoken, では = formal/written",
+          },
+          {
+            ja: "「いいえ、〜じゃありません。〜です。」と訂正する型を英語で説明する",
+            en: "When you correct someone, the natural pattern is two sentences. First the negative, then the right answer. いいえ、テイラーさんは学生じゃありません。会社員です. No, he isn't a student. He's a company employee.",
+            hint: "negative first, then the correct fact",
+          },
+        ],
+        run: [
+          {
+            ja: "練習B(肯定文を否定文に変える)を始める。例を見せて1番を指名する",
+            en: "Let's practice the negative. I'll give you a cue, and you make a negative sentence. Example: グプタさん and 医者 becomes グプタさんは医者じゃありません. Okay, number one.",
+            hint: "cue → negative sentence, with one example",
+          },
+          {
+            ja: "練習C(先生がわざと間違えて、生徒が直す)のやり方を説明する",
+            en: "Now let's switch it around. I'm going to say something wrong about our characters, and you correct me. Say いいえ, then the negative, then the right answer. Ready?",
+            hint: "explain the correction game before starting",
+          },
+          {
+            ja: "生徒が沈黙したので、否定文の出だしだけ言って続きを待つ",
+            en: "Let's do it together. いいえ、テイラーさんは... and then? What's he not?",
+            hint: "feed the opening, wait for the rest",
+          },
+          {
+            ja: "生徒が「学生じゃないです」と言ったので、この課の形に直す",
+            en: "That's understandable, and you'll hear it, but in this lesson we practice じゃありません. So: テイラーさんは学生じゃありません. One more time, with me.",
+            hint: "accept, then redirect to the target form",
+          },
+          {
+            ja: "Talk about yourselfで、生徒に自分について否定文を言わせる",
+            en: "Now about you. Tell me one thing you are not, and then what you are. Like this: 私は学生じゃありません。教師です. Your turn.",
+            hint: "model, then hand it over",
+          },
+          {
+            ja: "宿題の指示を出す",
+            en: "For homework, write two sentences about yourself using じゃありません — what you're not, and what you are. Please send them to me before the next lesson.",
+            hint: "state what, how many, and when",
+          },
+        ],
+      },
+
+      // ---------------------------------------------------
+      // 文法③ N₁はN₂ですか(＋だれ／どなた)
+      // ---------------------------------------------------
+      {
+        id: "g3",
+        label: "③ N₁はN₂ですか / だれ・どなた",
+        subtitle: "yes-no questions, who",
+        explain: [
+          {
+            ja: "文末に「か」をつけると疑問文になり、語順は変わらないことを英語で説明する",
+            en: "To make a question, just add か at the end. That's it — the word order doesn't change at all. テイラーさんは会社員です becomes テイラーさんは会社員ですか.",
+            hint: "add か — no word-order change",
+          },
+          {
+            ja: "はい／いいえの答え方を英語で説明する",
+            en: "You answer with はい for yes, or いいえ for no. And with いいえ, it's natural to add the correct answer: いいえ、学生じゃありません。医者です.",
+            hint: "はい / いいえ + the correct fact",
+          },
+          {
+            ja: "「だれ」と「どなた」の違い(丁寧さ)を英語で説明する",
+            en: "To ask who someone is, use だれ — あの人はだれですか. どなた is the polite version, so use it for someone older or in a formal situation: あの方はどなたですか.",
+            hint: "だれ = plain, どなた = polite",
+          },
+          {
+            ja: "「あの人」と「あの方」の対応関係を英語で説明する",
+            en: "Notice that the words match in politeness. あの人 goes with だれ, and the polite あの方 goes with どなた. Keep the pair together.",
+            hint: "あの人+だれ / あの方+どなた",
+          },
+        ],
+        run: [
+          {
+            ja: "練習B(質問を作って答える)を始める。例を2つ(はい・いいえ)見せる",
+            en: "Now let's make questions. I'll give you a name and a word, and you ask the question and answer it. Yes example: テイラーさん、アメリカ人 becomes テイラーさんはアメリカ人ですか。はい、アメリカ人です. Now number one.",
+            hint: "show both a yes and a no example",
+          },
+          {
+            ja: "生徒に質問する側をやらせる(役割を交代する)",
+            en: "Now let's switch. This time you ask me the questions, and I'll answer. Ask me about キムさん first.",
+            hint: "role reversal — student asks",
+          },
+          {
+            ja: "生徒が黙っているので、はい／いいえの二択にして答えやすくする",
+            en: "Let's make it simple. Just はい or いいえ. Is ワンさん a student? はい or いいえ?",
+            hint: "reduce to a yes/no choice",
+          },
+          {
+            ja: "練習C(名前を確かめる会話)を導入し、役を決める",
+            en: "Here's a short conversation for checking a name. I'll be A, you'll be B. 失礼ですが、お名前は？ Go ahead.",
+            hint: "assign roles, then start",
+          },
+          {
+            ja: "生徒が「か」を落として上げ調子だけで質問したので、直す",
+            en: "Good intonation, but Japanese questions need か at the end. テイラーさんは会社員ですか. Try it once more with か.",
+            hint: "point out the missing か, have them redo",
+          },
+          {
+            ja: "生徒がよくできたのでほめて、次の文法項目へ移る",
+            en: "Nice — your questions sound really natural now. Let's move on to the next pattern.",
+            hint: "praise, then transition",
+          },
+        ],
+      },
+
+      // ---------------------------------------------------
+      // 文法④ N₁のN₂(所属)
+      // ---------------------------------------------------
+      {
+        id: "g4",
+        label: "④ N₁のN₂",
+        subtitle: "affiliation (company / school)",
+        explain: [
+          {
+            ja: "「の」が2つの名詞をつなぐこと、ここでは所属＋身分であることを英語で説明する",
+            en: "の connects two nouns. Here, the first noun is the group — a company or a school — and the second is the position. ABCテックの社員 — an employee of ABC Tech.",
+            hint: "group + の + position",
+          },
+          {
+            ja: "英語と語順が逆になること(大きい方が先)を英語で説明する",
+            en: "Notice the order is the opposite of English. In English you say 'a student at Mirai University' — the person first. In Japanese the big group comes first: みらい大学の学生.",
+            hint: "big group first, opposite of English",
+          },
+          {
+            ja: "所属を入れた自己紹介の型を英語で説明する",
+            en: "You can put this straight into your self-introduction. はじめまして。テイラーです。ABCテックの社員です。どうぞよろしくお願いします.",
+            hint: "add 〜の〜です to the self-intro",
+          },
+        ],
+        run: [
+          {
+            ja: "練習B(名前・会社・仕事の3要素で文を作る)を始める。例を見せる",
+            en: "This time the cue has three parts: a name, a company, and a job. Example: サントスさん、つばめ航空、社員 becomes サントスさんはつばめ航空の社員です. Number one, please.",
+            hint: "explain the three-part cue, then one example",
+          },
+          {
+            ja: "生徒が「社員のABCテック」と語順を間違えたので、やさしく直す",
+            en: "Almost! Remember, the company comes first in Japanese. So it's ABCテックの社員です. Let's say it together.",
+            hint: "name the word-order slip, then repeat together",
+          },
+          {
+            ja: "練習C(同僚を紹介する会話)を導入する。1対1なので先生が2役やると伝える",
+            en: "Now an introduction scene. I'll play both 田中さん and myself, and you'll be テイラーさん. Just say your line: はじめまして, and then your company and job.",
+            hint: "teacher covers two roles in a 1-to-1 lesson",
+          },
+          {
+            ja: "Talk about yourselfで、自分の所属を言わせる",
+            en: "Now your turn. Tell me where you belong — your company or your school, and your position. 私は…の…です.",
+            hint: "prompt with the sentence frame",
+          },
+          {
+            ja: "宿題の指示を出す",
+            en: "For homework, write two sentences with 〜の〜 about your own company or school. Send them to me before we meet again.",
+            hint: "what, how many, by when",
+          },
+        ],
+      },
+
+      // ---------------------------------------------------
+      // 文法⑤ N₁もN₂です
+      // ---------------------------------------------------
+      {
+        id: "g5",
+        label: "⑤ N₁もN₂です",
+        subtitle: "too / also",
+        explain: [
+          {
+            ja: "「も」が「は」に代わって「〜も(also)」の意味になることを英語で説明する",
+            en: "When the second person is the same as the first, you don't use は — you use も instead. も means 'too' or 'also.' テイラーさんは会社員です。グプタさんも会社員です.",
+            hint: "replace は with も — 'too'",
+          },
+          {
+            ja: "「も」を使うとき「は」は消えることを英語で説明する",
+            en: "Important: も replaces は. You never say はも together. Just グプタさんも, not グプタさんはも.",
+            hint: "も replaces は — never both",
+          },
+          {
+            ja: "「〜も〜ですか」に「いいえ」で答えるときは「は」に戻ることを英語で説明する",
+            en: "Here's the tricky part. If the answer is no, は comes back. Question: シティさんもブラジル人ですか. Answer: いいえ、シティさんはブラジル人じゃありません。インドネシア人です.",
+            hint: "negative answer → back to は",
+          },
+        ],
+        run: [
+          {
+            ja: "練習B(2文セットで「も」の文を作る)を始める。例を見せる",
+            en: "Now let's practice も. I'll give you two people. You say the first sentence, then the second one with も. Example: 田中さん、日本人、鈴木さん becomes 田中さんは日本人です。鈴木さんも日本人です. Number one.",
+            hint: "two-sentence pattern, one example",
+          },
+          {
+            ja: "生徒が「鈴木さんはも日本人です」と言ったので、直す",
+            en: "Good try — but も takes the place of は, so we don't need both. It's 鈴木さんも日本人です. Say it with me.",
+            hint: "も replaces は — correct and repeat",
+          },
+          {
+            ja: "練習C(「〜もですか」と質問して、いいえで答える)を進行する",
+            en: "Now I'll ask you a も question, and this time the answer is no. Watch the particle — it goes back to は. サントスさんはブラジル人です。田中さんもブラジル人ですか？",
+            hint: "flag the particle switch before asking",
+          },
+          {
+            ja: "生徒が「は」に戻せたので、その点を具体的にほめる",
+            en: "Excellent — you switched back to は. That's exactly the part most students forget. Well done.",
+            hint: "praise the specific thing they got right",
+          },
+          {
+            ja: "宿題を出して、次の項目に進む",
+            en: "For homework, write two sentences with も. Now, one last pattern for today.",
+            hint: "homework, then transition",
+          },
+        ],
+      },
+
+      // ---------------------------------------------------
+      // 文法⑥ Nは―歳です(＋何歳／おいくつ)
+      // ---------------------------------------------------
+      {
+        id: "g6",
+        label: "⑥ Nは―歳です / 何歳・おいくつ",
+        subtitle: "age",
+        explain: [
+          {
+            ja: "年齢の言い方(数字＋歳)を英語で説明する",
+            en: "To say an age, you put the number before 歳. テイラーさんは28歳です — Mr. Taylor is twenty-eight years old. That's the whole pattern.",
+            hint: "number + 歳",
+          },
+          {
+            ja: "1歳・8歳・10歳の音の変化を英語で説明する",
+            en: "Three ages change sound, so listen carefully. One is いっさい, eight is はっさい, and ten is じゅっさい. They double the consonant. The rest are regular.",
+            hint: "いっさい / はっさい / じゅっさい",
+          },
+          {
+            ja: "「何歳」と「おいくつ」の使い分けを英語で説明する",
+            en: "To ask an age, say 何歳ですか. The polite version is おいくつですか — use that with someone older than you.",
+            hint: "何歳 = plain, おいくつ = polite",
+          },
+          {
+            ja: "実際には大人に年齢を聞くのは失礼になり得るので、登場人物で練習することを英語で説明する",
+            en: "One cultural note: in real life, asking an adult their age can be rude, especially a woman's. So we'll practice with the characters in the book, not with real people.",
+            hint: "cultural note — practice with characters",
+          },
+        ],
+        run: [
+          {
+            ja: "練習B(登場人物の年齢を言う)を始める。例を見せる",
+            en: "Let's practice ages. Look at the character and tell me how old they are. Example: テイラーさん, twenty-eight, becomes テイラーさんは28歳です. Number one — ミュラーさん.",
+            hint: "look at the character, say the age",
+          },
+          {
+            ja: "生徒が「じゅうさい」と言ったので、「じゅっさい」に直す",
+            en: "Careful with that one — ten is じゅっさい, not じゅうさい. Listen: じゅっさい. Now you try.",
+            hint: "correct the sound change, model, repeat",
+          },
+          {
+            ja: "練習C(年上の人には「おいくつですか」を使う)に切り替える指示を出す",
+            en: "Now, ミュラーさん is fifty-two, so he's older than you. Which question do you use? Right — おいくつですか. Go ahead and ask.",
+            hint: "make them choose the polite form",
+          },
+          {
+            ja: "年齢クイズ(二択)で、無口な生徒でも答えられるようにする",
+            en: "Let's do a quick quiz. Look at ワンさん. How old do you think he is — 20歳 or 29歳? Just guess.",
+            hint: "two-choice guessing game",
+          },
+          {
+            ja: "Can-do checkを読み上げて、生徒に一問実際にやらせる",
+            en: "Let's check today's goal. Can you ask and tell someone's age? Try it now — ask me about 田中さん.",
+            hint: "read the can-do, then have them do it live",
+          },
+          {
+            ja: "宿題の指示を出して、レッスンを締める",
+            en: "For homework, look at the character cards and write three people's ages. Great work today — see you next time!",
+            hint: "homework, then a warm close",
+          },
+        ],
+      },
+    ],
+  },
+
   lesson13: {
     id: "lesson13",
     label: "第13課",
