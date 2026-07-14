@@ -819,25 +819,26 @@ export default function ShunkanEisakubunCoach() {
       : buildLessonQueue(deck);
     queueRef.current = queue;
     setLessonResults([]);
-    let text;
-    if (mode === "lesson") {
-      const l = LESSONS[lessonId];
-      const act = lessonActivity === "explain" ? "explaining the grammar in English" : "running the class in English";
-      text = `Let's practice ${act} for ${l.label}. ${queue.length} prompt${queue.length > 1 ? "s" : ""} coming up — take your time and speak naturally. Let's begin!`;
-    } else if (mode === "scenario") {
-      text = `Let's practice English for "${SCENARIOS[scenarioKey].label}" today. ${queue.length} phrases coming up — let's dive in!`;
-    } else {
-      const reviewCount = queue.filter((q) => q.type === "review").length;
-      const newCount = queue.length - reviewCount;
-      if (stats.totalReviewed === 0)
-        text = "Hi! I'm your English coach. Today we'll start with five brand-new sentences. Let's dive in!";
-      else if (reviewCount === 0)
-        text = "Welcome back! Today's lesson is five new sentences. Ready? Let's go!";
-      else if (newCount === 0)
-        text = `Welcome back! Today we're reviewing ${reviewCount} sentence${reviewCount > 1 ? "s" : ""} from before. Let's refresh your memory!`;
-      else
-        text = `Welcome back! Today: ${reviewCount} review${reviewCount > 1 ? "s" : ""} and ${newCount} new sentence${newCount > 1 ? "s" : ""}. Let's get started!`;
+
+    // 課別レッスン・レッスンシナリオは、あいさつナレーションなしで直接1問目へ
+    if (mode === "lesson" || mode === "scenario") {
+      setStage("lesson");
+      startQuestion(0);
+      return;
     }
+
+    let text;
+    const reviewCount = queue.filter((q) => q.type === "review").length;
+    const newCount = queue.length - reviewCount;
+    if (stats.totalReviewed === 0)
+      text = "Hi! I'm your English coach. Today we'll start with five brand-new sentences. Let's dive in!";
+    else if (reviewCount === 0)
+      text = "Welcome back! Today's lesson is five new sentences. Ready? Let's go!";
+    else if (newCount === 0)
+      text = `Welcome back! Today we're reviewing ${reviewCount} sentence${reviewCount > 1 ? "s" : ""} from before. Let's refresh your memory!`;
+    else
+      text = `Welcome back! Today: ${reviewCount} review${reviewCount > 1 ? "s" : ""} and ${newCount} new sentence${newCount > 1 ? "s" : ""}. Let's get started!`;
+
     setGreetingText(text);
     setStage("greeting");
     speak(text, "en-US");
@@ -1030,7 +1031,7 @@ export default function ShunkanEisakubunCoach() {
               <div style={{ marginBottom: 28 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#6B7280", marginBottom: 10 }}>文法ポイント</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {[...lesson.points, { id: "all", label: "①〜③ まとめて練習", subtitle: "各ポイントからランダムに出題" }].map((p) => (
+                  {[...lesson.points, { id: "all", label: "全ポイント まとめて練習", subtitle: "各ポイントからランダムに出題" }].map((p) => (
                     <button key={p.id} onClick={() => setLessonPointId(p.id)}
                       style={{ textAlign: "left", padding: "12px 16px", borderRadius: 12, border: lessonPointId === p.id ? "2px solid #1F2A37" : "1px solid #E5DFD3", background: lessonPointId === p.id ? "#1F2A37" : "#FFFFFF", color: lessonPointId === p.id ? "#FBF7F0" : "#1F2A37", cursor: "pointer" }}>
                       <div style={{ fontWeight: 700, fontSize: 14 }}>{p.label}</div>
