@@ -735,11 +735,15 @@ export default function App() {
           </button>
         </div>
 
+        <button onClick={() => { sfx.resume(); sfx.tap(); setShowCat(true); }} style={{ ...blockBtn("#2b2b33"), width: "100%", marginBottom: 14 }}>🐾 くろと おはなし</button>
+
         {!speech.supported && (
           <div style={{ ...panel, background: "#ffe6cc", fontSize: 13 }}>
             🎤 このブラウザは こえ入力が つかえないみたい。キーボード入力で あそべます。(Chrome だと こえで あそべます)
           </div>
         )}
+
+        {showCat && <CatChat onClose={() => setShowCat(false)} />}
       </Frame>
     );
   }
