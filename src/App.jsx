@@ -1,1518 +1,1041 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import {
-  Flame, Mic, Square, Volume2, Repeat, CheckCircle2,
-  AlertCircle, Sparkles, Settings2, X, ChevronRight,
-  Lightbulb, RotateCcw, SkipForward, BookOpen,
-} from "lucide-react";
-import { LESSONS } from "./lessonData";
+import { judgeAnswer } from "./utils/judgeAnswer";
+import { SENIOR_QUESTIONS, JUNIOR_QUESTIONS } from "./lessonData";
+import CatChat from "./CatChat";
 
-const LEVELS = {
-  "初級": { label: "初級", desc: "Present / past tense, can / will" },
-  "中級": { label: "中級", desc: "Perfect tense, relative clauses" },
-  "上級": { label: "上級", desc: "Subjunctive, participial phrases, business topics" },
-};
-const TOPICS = ["日常会話", "旅行", "ビジネス", "フリートーク"];
+// ===========================================================================
+// えいごバトル v4
+//  - 冒険マップを じぶんで あるける(十字キー / キーボード / スワイプ)
+//  - ゾンビ&ゾンビボスが うろつく → ぶつかると バトル、草むらで ランダム遭遇
+//  - たおすと 宝箱 → おたから GET → 剣が つよくなる(B案)
+//  - セーブ&やめる / つづきから
+// ===========================================================================
 
-const SCENARIOS = {
-  greeting: {
-    label: "挨拶・雑談",
-    desc: "レッスン開始のあいさつ、アイスブレイク、話題を広げる雑談",
-    color: "#D97757",
-    seedPhrases: [
-      "今週の調子はどうですか、と聞く",
-      "前回の内容を復習してきたか尋ねる",
-      "今日はこのトピックに集中しましょう、と伝える",
-      "始める前に質問はあるか聞く",
-      "そろそろ始めましょうか、と軽く切り出す",
-      "週末はどう過ごしていますか、と雑談する",
-      "日本に来たことがあるか、旅行の予定を聞く",
-      "日本語学習で一番楽しいのは何か聞く",
-      "ところで、このトピック試したことある?と話を広げる",
-    ],
-  },
-  grammar: {
-    label: "文法説明",
-    desc: "文法・語彙の説明、意味の解説",
-    color: "#1F2A37",
-    seedPhrases: [
-      "この単語・表現の意味を説明する",
-      "嚙み砕いて説明しますね、と前置きする",
-      "AとBの違いはここです、と伝える",
-      "こう考えると理解しやすいですよ、と説明する",
-      "これはよく使うパターンです、と伝える",
-      "この動詞がどう変化するか気づかせる",
-      "この文の中でこの語がどんな役割をしているかに注目させる",
-      "最初は難しく感じるけど、慣れれば身につくよ、と励ます",
-      "ふたつの例文を並べて比べさせる",
-      "日常会話でよく耳にするパターンです、と紹介する",
-    ],
-  },
-  instruction: {
-    label: "指示・練習",
-    desc: "ロールプレイやドリルの指示、練習の進め方",
-    color: "#7A8B6F",
-    seedPhrases: [
-      "この文を声に出して読んでみて、と指示する",
-      "この単語を使って文を作ってみて、と指示する",
-      "このパターンを何回か練習しましょう、と伝える",
-      "ロールプレイをしましょう、私が店員であなたが客、と役を割り振る",
-      "役割を交代して逆でやってみましょう、と伝える",
-      "私の後について繰り返して、と指示する",
-      "私が英語で言うから日本語に訳してみて、と指示する",
-      "焦らなくて大丈夫ですよ、と伝える",
-      "変換ドリルをしましょう、この動詞を〜形に変えてみて、と指示する",
-      "代入ドリルをしましょう、例文のこの部分を入れ替えてみて、と指示する",
-      "完全な文で答えてみて、と促す",
-      "短い会話を始めましょう、私がこう言うから続けて、と切り出す",
-    ],
-  },
-  feedback: {
-    label: "訂正・フィードバック",
-    desc: "生徒の発言に対する訂正、褒め、励まし",
-    color: "#C2691F",
-    seedPhrases: [
-      "惜しい、小さな間違いがあります、と伝える",
-      "惜しい、もう一度やってみよう、と促す",
-      "とても自然な言い方でした、と褒める",
-      "もっと自然な言い方はこうです、と直す",
-      "正しくは A で、B ではありません、と訂正する",
-      "よくある間違いだから気にしないで、と伝える",
-      "このパターン、だいぶ上達してきましたね、と伝える",
-      "定着させるためにもう一回練習しましょう、と促す",
-      "その調子、よくできています、と励ます",
-    ],
-  },
-  prompt: {
-    label: "発言を促す・相槌",
-    desc: "生徒の発言を引き出す質問、相槌、共感",
-    color: "#C9A04A",
-    seedPhrases: [
-      "これはどういう意味だと思いますか、と聞く",
-      "日本語ではどう言いますか、と聞く",
-      "例文を作ってみてくれる?と促す",
-      "こういう場面ではどう言いますか、と聞く",
-      "説明する前に予想してみて、と促す",
-      "ここまで大丈夫ですか、と確認する",
-      "なるほど、そういうことね、と相槌を打つ",
-      "いい質問ですね、と受け止める",
-      "そのとおり、ばっちりです、と反応する",
-      "面白いですね、もう少し詳しく聞かせて、と続きを促す",
-    ],
-  },
-  trouble: {
-    label: "トラブル対応",
-    desc: "通信不良や聞き取れない時の対応",
-    color: "#6B7A8F",
-    seedPhrases: [
-      "通信が途切れたので、もう一度言ってもらう",
-      "声がちゃんと聞こえるか確認する",
-      "はっきり聞こえていますか、と確認する",
-      "画面を共有します、少し待ってください、と伝える",
-      "チャットに書き込みますね、と伝える",
-      "少し遅延があるみたい、と伝える",
-      "遅くなってごめんなさい、続けましょう、と切り替える",
-    ],
-  },
-  closing: {
-    label: "まとめ・締め",
-    desc: "レッスンの締めくくり、宿題の案内、次回への繋ぎ",
-    color: "#A85A6E",
-    seedPhrases: [
-      "今日やった内容をさっと復習しましょう、と伝える",
-      "今日のパターン、よく身についていました、と褒める",
-      "宿題として次回までにこのパターンを3回使ってみて、と伝える",
-      "次回も同じ時間でいいですか、と確認する",
-      "何かあればいつでもメッセージしてね、と伝える",
-      "また次回!とレッスンを締める",
-    ],
-  },
-  filler: {
-    label: "つなぎ・間つなぎ",
-    desc: "言葉に詰まった時のつなぎ、話題転換のつなぎ",
-    color: "#8A6FB0",
-    seedPhrases: [
-      "少し考える時間が欲しい、と間をつなぐ",
-      "いい質問ですね、少し考えさせて、と間をとる",
-      "言い直したい、と切り出す",
-      "ちょっと言葉が出てこないので待ってて、と伝える",
-      "沈黙せずに何か声を出してつなぐ",
-      "それは次のレッスンで習いますよ、と伝える",
-      "次のポイントに進みましょう、と話題を切り替える",
-      "少し話を変えて〜について話しましょう、と切り替える",
-      "今の話に関連して、と話をつなげる",
-      "念のため確認しますが、と補足する",
-      "言い換えると、と別の言い方で説明する",
-    ],
-  },
+const FONT = "'DotGothic16', 'Courier New', monospace";
+const INK = "#23202b";
+const START_HEARTS = 3;
+const MAX_HEARTS = 6;
+const SAVE_KEY = "kids_battle_save_v2";
+const W = 9, H = 9; // マップの広さ
+
+// --- 剣(おたからで つよくなる) ---
+const SWORDS = [
+  { name: "きの けん", emoji: "🪵", dmg: 22, need: 0 },
+  { name: "いしの けん", emoji: "🪨", dmg: 28, need: 3 },
+  { name: "てつの けん", emoji: "⚔️", dmg: 36, need: 8 },
+  { name: "きんの けん", emoji: "🗡️", dmg: 46, need: 15 },
+  { name: "ダイヤの けん", emoji: "💎", dmg: 60, need: 25 },
+  { name: "ネザライトの けん", emoji: "🔥", dmg: 80, need: 40 },
+];
+function swordFor(gems) { let s = SWORDS[0]; for (const x of SWORDS) if (gems >= x.need) s = x; return s; }
+function nextSword(gems) { return SWORDS.find((x) => gems < x.need) || null; }
+
+// --- おたから(宝箱の中身) ---
+const LOOT = [
+  { emoji: "💎", name: "ダイヤ", gem: 3, rare: 3 },
+  { emoji: "🥇", name: "きんインゴット", gem: 2, rare: 2 },
+  { emoji: "⛓️", name: "てつインゴット", gem: 1, rare: 1 },
+  { emoji: "💚", name: "エメラルド", gem: 2, rare: 2 },
+  { emoji: "🍎", name: "まほうの リンゴ", gem: 0, rare: 2, heal: 1 },
+  { emoji: "🪙", name: "コイン", gem: 1, rare: 1 },
+];
+function rollLoot(boss) {
+  const pool = boss ? LOOT.filter((l) => l.rare >= 2) : LOOT;
+  const n = boss ? 3 : Math.random() < 0.4 ? 2 : 1;
+  const got = [];
+  for (let i = 0; i < n; i++) got.push(pool[Math.floor(Math.random() * pool.length)]);
+  return got;
+}
+
+// --- モンスター図鑑 ---
+// atk = こうげきりょく(バトルで数字表示) / ranged = 弓・まほうなど とおくから こうげき
+const MOBS = {
+  zombie:      { name: "ゾンビ",              emoji: "🧟",    color: "#4E7A38", atk: 15 },
+  drowned:     { name: "おぼれゾンビ",        emoji: "🧟‍♂️",  color: "#2f8a8a", atk: 18 },
+  childZombie: { name: "こどもゾンビ",        emoji: "🧟‍♂️",  color: "#6AA84F", atk: 12 },
+  rotZombie:   { name: "くさったゾンビ",      emoji: "🧟",    color: "#3f5f2f", atk: 20 },
+  archer:      { name: "ゆみの わるいやつ",   emoji: "🏹",    color: "#7a5a2f", atk: 22, ranged: true },
+  skeleton:    { name: "うごく がいこつ",     emoji: "💀",    color: "#c9c2aa", atk: 20 },
+  wizard:      { name: "まほうつかい",        emoji: "🧙",    color: "#6b2fa0", atk: 26, ranged: true },
+  // ボスきゅう
+  zombieKing:  { name: "ゾンビキング",        emoji: "👹",    color: "#8446B0", atk: 30, boss: true },
+  giantZombie: { name: "きょだいゾンビ",      emoji: "👺",    color: "#c0392b", atk: 34, boss: true },
+  bossArcher:  { name: "ボスアーチャー",      emoji: "🏹",    color: "#a0522d", atk: 36, boss: true, ranged: true },
+  boneDino:    { name: "ほねの きょうりゅう", emoji: "🦖",    color: "#d8d0b8", atk: 42, boss: true },
+  dragon:      { name: "わるい ドラゴン",     emoji: "🐉",    color: "#b03030", atk: 48, boss: true },
 };
 
-// --- Pronunciation practice content ---
-const PRONUNCIATION_CATEGORIES = {
-  v_b: {
-    label: "v / b",
-    desc: "唇を閉じて出すbと、上の前歯を下唇に当てて出すvの区別",
-    color: "#2F7A78",
-    items: [
-      { word: "verb", ipa: "/vɜːrb/", note: "動詞" },
-      { word: "very", ipa: "/ˈveri/", note: "とても" },
-      { word: "vote", ipa: "/voʊt/", note: "投票する" },
-      { word: "voice", ipa: "/vɔɪs/", note: "声" },
-      { word: "move", ipa: "/muːv/", note: "動く" },
-      { word: "believe", ipa: "/bɪˈliːv/", note: "信じる" },
-      { word: "favorite", ipa: "/ˈfeɪvərɪt/", note: "お気に入りの" },
-      { word: "invite", ipa: "/ɪnˈvaɪt/", note: "招待する" },
-    ],
+// --- 場面(ステージ)モード ---
+// pool = でてくる ざこモンスター / bosses = 5のばいすうステージのボス
+const SCENES = {
+  wasteland: {
+    name: "ゾンビの あれち", emoji: "🧟",
+    ground: "#7cc05a", grass: "#4e8f3a", tree: "#5a3a1f", rock: "#9a9a9a", panel: "#3f6b2a",
+    pool: ["zombie", "drowned", "childZombie", "rotZombie"],
+    bosses: ["zombieKing", "giantZombie"],
   },
-  r_l: {
-    label: "r / l",
-    desc: "舌をどこにも触れさせないrと、舌先を上あごに当てるlの区別",
-    color: "#3B5FA0",
-    items: [
-      { word: "right", ipa: "/raɪt/", note: "正しい" },
-      { word: "light", ipa: "/laɪt/", note: "光・軽い" },
-      { word: "road", ipa: "/roʊd/", note: "道" },
-      { word: "load", ipa: "/loʊd/", note: "積み荷" },
-      { word: "free", ipa: "/friː/", note: "自由な" },
-      { word: "fly", ipa: "/flaɪ/", note: "飛ぶ" },
-      { word: "world", ipa: "/wɜːrld/", note: "世界" },
-      { word: "really", ipa: "/ˈriːəli/", note: "本当に" },
-    ],
+  base: {
+    name: "わるいひとの きち", emoji: "🏹",
+    ground: "#9a8f76", grass: "#7a6f58", tree: "#4a3f2f", rock: "#5a5a5a", panel: "#3a3630",
+    pool: ["archer", "archer", "zombie", "skeleton"],
+    bosses: ["bossArcher", "giantZombie"],
   },
-  th: {
-    label: "th",
-    desc: "舌を上下の歯の間に軽く挟んで出すthの音(this / think)",
-    color: "#A8546B",
-    items: [
-      { word: "think", ipa: "/θɪŋk/", note: "考える" },
-      { word: "this", ipa: "/ðɪs/", note: "これ" },
-      { word: "three", ipa: "/θriː/", note: "3" },
-      { word: "mother", ipa: "/ˈmʌðər/", note: "母" },
-      { word: "both", ipa: "/boʊθ/", note: "両方" },
-      { word: "though", ipa: "/ðoʊ/", note: "だけれど" },
-      { word: "birthday", ipa: "/ˈbɜːrθdeɪ/", note: "誕生日" },
-      { word: "without", ipa: "/wɪˈðaʊt/", note: "〜なしで" },
-    ],
-  },
-  phrases: {
-    label: "つながる音",
-    desc: "単語同士がつながって聞こえる、決まり文句のリズム",
-    color: "#8C6B3E",
-    items: [
-      { word: "part ways", ipa: "/pɑːrt weɪz/", note: "決別する、別々の道を行く" },
-      { word: "kind of", ipa: "/kaɪnd əv/", note: "なんとなく" },
-      { word: "a lot of", ipa: "/ə lɒt əv/", note: "たくさんの" },
-      { word: "first of all", ipa: "/fɜːrst əv ɔːl/", note: "まず最初に" },
-      { word: "used to", ipa: "/juːst tə/", note: "以前は〜だった" },
-      { word: "next to", ipa: "/nekst tə/", note: "〜の隣に" },
-      { word: "sort of", ipa: "/sɔːrt əv/", note: "ある意味" },
-    ],
+  temple: {
+    name: "ほねの しんでん", emoji: "💀",
+    ground: "#d9c7a3", grass: "#c2b184", tree: "#8a7a55", rock: "#b8a882", panel: "#6b5f45",
+    pool: ["skeleton", "wizard", "skeleton", "drowned"],
+    bosses: ["boneDino", "dragon"],
   },
 };
+const SCENE_ORDER = ["wasteland", "base", "temple"];
+function sceneForStage(stage) { return SCENE_ORDER[(stage - 1) % SCENE_ORDER.length]; }
 
-const SCORE_META = {
-  perfect: { label: "Perfect", color: "#7A8B6F", Icon: CheckCircle2 },
-  good: { label: "Good", color: "#C9A04A", Icon: CheckCircle2 },
-  needs_improvement: { label: "Almost", color: "#C9694F", Icon: AlertCircle },
+function makeEnemy(stage, boss, sceneKey) {
+  const sc = SCENES[sceneKey] || SCENES.wasteland;
+  if (boss) {
+    const key = sc.bosses[Math.floor(stage / 5) % sc.bosses.length];
+    return { ...MOBS[key], maxHp: 55 + stage * 8, boss: true };
+  }
+  const key = sc.pool[Math.floor(Math.random() * sc.pool.length)];
+  return { ...MOBS[key], maxHp: 26 + stage * 4, boss: false };
+}
+const PAIN = ["💢", "💥", "😵", "⭐", "😖"];
+
+// ===========================================================================
+// 効果音
+// ===========================================================================
+let audioCtx = null;
+let muted = false;
+function getCtx() {
+  if (!audioCtx) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) audioCtx = new AC(); }
+  return audioCtx;
+}
+function tone({ freq = 440, dur = 0.1, type = "square", vol = 0.2, slideTo = null, delay = 0 }) {
+  if (muted) return;
+  const ctx = getCtx(); if (!ctx) return;
+  try {
+    const t0 = ctx.currentTime + delay;
+    const osc = ctx.createOscillator(); const gain = ctx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, t0);
+    if (slideTo) osc.frequency.exponentialRampToValueAtTime(Math.max(1, slideTo), t0 + dur);
+    gain.gain.setValueAtTime(vol, t0);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t0); osc.stop(t0 + dur + 0.02);
+  } catch { /* ignore */ }
+}
+const sfx = {
+  resume() { const c = getCtx(); if (c && c.state === "suspended") c.resume(); },
+  tap() { tone({ freq: 880, dur: 0.05, type: "square", vol: 0.12 }); },
+  walk() { tone({ freq: 200, dur: 0.05, type: "square", vol: 0.07 }); },
+  encounter() { [300, 500, 300, 600].forEach((f, i) => tone({ freq: f, dur: 0.1, type: "sawtooth", vol: 0.22, delay: i * 0.09 })); },
+  hit() { tone({ freq: 640, slideTo: 180, dur: 0.12, type: "square", vol: 0.26 }); tone({ freq: 110, dur: 0.1, type: "sawtooth", vol: 0.2, delay: 0.02 }); },
+  crit() { [780, 1050, 1400].forEach((f, i) => tone({ freq: f, dur: 0.09, type: "square", vol: 0.26, delay: i * 0.05 })); tone({ freq: 80, dur: 0.2, type: "sawtooth", vol: 0.22, delay: 0.02 }); },
+  close() { tone({ freq: 500, slideTo: 620, dur: 0.12, type: "triangle", vol: 0.2 }); },
+  miss() { tone({ freq: 220, slideTo: 70, dur: 0.32, type: "sawtooth", vol: 0.24 }); },
+  step() { tone({ freq: 120, dur: 0.13, type: "sawtooth", vol: 0.14 }); },
+  defeat() { [520, 400, 300, 200].forEach((f, i) => tone({ freq: f, dur: 0.16, type: "triangle", vol: 0.26, delay: i * 0.11 })); },
+  chest() { [660, 880, 1100, 1320].forEach((f, i) => tone({ freq: f, dur: 0.13, type: "square", vol: 0.24, delay: i * 0.1 })); },
+  upgrade() { [523, 659, 784, 1047, 1319].forEach((f, i) => tone({ freq: f, dur: 0.18, type: "square", vol: 0.24, delay: i * 0.12 })); },
+  combo() { tone({ freq: 1100, dur: 0.08, type: "square", vol: 0.2 }); },
 };
-const DATA_KEY = "shunkan_coach_data_v2";
-const PRON_DATA_KEY = "shunkan_coach_pron_v1";
-const QUESTIONS_PER_LESSON = 5;
-
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-// --- Spaced repetition (SM-2) ---
-function scheduleCard(card, quality) {
-  let { reps = 0, intervalDays = 0, ease = 2.5 } = card;
-  if (quality < 3) {
-    reps = 0;
-    intervalDays = 1;
-  } else {
-    if (reps === 0) intervalDays = 1;
-    else if (reps === 1) intervalDays = 3;
-    else intervalDays = Math.max(1, Math.round(intervalDays * ease));
-    reps += 1;
-  }
-  ease = Math.max(1.3, ease + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02)));
-  return {
-    ...card, reps, intervalDays, ease,
-    dueAt: Date.now() + intervalDays * 86400000,
-    lastReviewedAt: Date.now(),
-  };
-}
-
-function buildLessonQueue(deck) {
-  const now = Date.now();
-  const due = deck.filter((c) => c.dueAt <= now).sort((a, b) => a.dueAt - b.dueAt);
-  const reviewCards = due.slice(0, QUESTIONS_PER_LESSON);
-  const newCount = QUESTIONS_PER_LESSON - reviewCards.length;
-  return [
-    ...reviewCards.map((c) => ({ type: "review", card: c })),
-    ...Array.from({ length: newCount }, () => ({ type: "new", card: null })),
-  ];
-}
-
-function buildScenarioQueue() {
-  return Array.from({ length: QUESTIONS_PER_LESSON }, () => ({ type: "new", card: null }));
-}
-
-// --- 課別レッスンの出題キューを組み立てる(データ駆動) ---
-// lesson: LESSONS[lessonId] のオブジェクト
-// activity: "explain"(文法説明) | "run"(授業運営)
-// pointId: 文法ポイントのid、または "all"(全ポイントからまとめて)
-function buildLessonModeQueue(lesson, activity, pointId) {
-  const points = pointId === "all" ? lesson.points : lesson.points.filter((p) => p.id === pointId);
-  const tasks = [];
-  points.forEach((p) => {
-    const list = activity === "explain" ? p.explain : p.run;
-    (list || []).forEach((t) => tasks.push({ ...t, pointLabel: p.label }));
-  });
-  const shuffled = [...tasks].sort(() => Math.random() - 0.5);
-  // 単一ポイントならそのポイントの全問、「まとめて」なら6問に絞る
-  const cap = pointId === "all" ? 6 : shuffled.length;
-  const chosen = shuffled.slice(0, Math.max(1, Math.min(cap, shuffled.length)));
-  return chosen.map((t, i) => ({
-    type: "new",
-    card: {
-      id: `l_${Date.now()}_${i}`,
-      japanese: t.ja,
-      english_correct: t.en,
-      hint: t.hint,
-      pointLabel: t.pointLabel,
-      lesson: lesson.id,
-      activity,
-    },
-  }));
-}
-
-// --- あいまい一致ヘルパー ---
-// 音声認識の軽微な聞き間違い(1〜2文字の違い)を許容するための編集距離
-function editDistance(a, b) {
-  const m = a.length, n = b.length;
-  if (!m) return n;
-  if (!n) return m;
-  const dp = Array.from({ length: m + 1 }, (_, i) => {
-    const row = new Array(n + 1).fill(0);
-    row[0] = i;
-    return row;
-  });
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      dp[i][j] = Math.min(
-        dp[i - 1][j] + 1,
-        dp[i][j - 1] + 1,
-        dp[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
-      );
-    }
-  }
-  return dp[m][n];
-}
-
-// 単語同士が「ほぼ同じ」とみなせるか(長い単語ほど許容度を広げる)
-function wordsAlike(a, b) {
-  if (a === b) return true;
-  const len = Math.max(a.length, b.length);
-  if (len >= 7) return editDistance(a, b) <= 2;
-  if (len >= 4) return editDistance(a, b) <= 1;
-  return false;
-}
-
-function similarity(a, b) {
-  const norm = (s) => s.toLowerCase().replace(/[^a-z0-9' ]/g, "").trim().split(/\s+/).filter(Boolean);
-  const wa = norm(a), wb = norm(b);
-  if (!wa.length || !wb.length) return 0;
-  const used = new Array(wb.length).fill(false);
-  let overlap = 0;
-  for (const w of wa) {
-    const idx = wb.findIndex((x, i) => !used[i] && wordsAlike(w, x));
-    if (idx >= 0) { used[idx] = true; overlap += 1; }
-  }
-  return overlap / Math.max(wa.length, wb.length);
-}
-
-// 認識候補の中から模範解答に最も近いものを選ぶ
-function pickBestCandidate(candidates, target) {
-  const cands = [...new Set(candidates.map((c) => (c || "").trim()).filter(Boolean))];
-  if (!cands.length) return "";
-  if (!target) return cands[0];
-  let best = cands[0], bestScore = -1;
-  for (const c of cands) {
-    const s = similarity(c, target);
-    if (s > bestScore) { bestScore = s; best = c; }
-  }
-  return best;
-}
-
-// --- Pronunciation matching helpers ---
-function normalizeWords(s) {
-  return s.toLowerCase().replace(/[^a-z0-9' ]/g, "").trim().split(/\s+/).filter(Boolean);
-}
-function checkPronunciation(transcript, target) {
-  const heard = normalizeWords(transcript);
-  const want = normalizeWords(target);
-  if (!heard.length || !want.length) return false;
-  if (want.length === 1) return heard.includes(want[0]);
-  const heardSet = new Set(heard);
-  const matched = want.filter((w) => heardSet.has(w)).length;
-  return matched / want.length >= 0.8;
-}
-function categoryAccuracy(key, data) {
-  const items = PRONUNCIATION_CATEGORIES[key].items;
-  let attempts = 0, correct = 0;
-  items.forEach((it) => {
-    const r = data[it.word];
-    if (r) { attempts += r.attempts; correct += r.correct; }
-  });
-  return attempts > 0 ? correct / attempts : null;
-}
 
 function speak(text, lang) {
-  return new Promise((resolve) => {
-    if (!text || !window.speechSynthesis) { resolve(); return; }
-    window.speechSynthesis.cancel();
-    const utter = new SpeechSynthesisUtterance(text);
-    utter.lang = lang;
-    utter.rate = lang.startsWith("ja") ? 0.92 : 0.98;
-    utter.onend = () => resolve();
-    utter.onerror = () => resolve();
-    window.speechSynthesis.speak(utter);
-  });
+  if (!text || !window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = lang; u.rate = lang.startsWith("ja") ? 0.95 : 0.92;
+  window.speechSynthesis.speak(u);
 }
 
-// APIキーはサーバー側(Netlify Function)に隠れているので
-// ここからは /api/claude に投げるだけでOK
-async function callClaude(system, userMsg) {
-  const response = await fetch("/api/claude", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-6",
-      max_tokens: 800,
-      system,
-      messages: [{ role: "user", content: userMsg }],
-    }),
-  });
-  if (!response.ok) throw new Error("API request failed");
-  const data = await response.json();
-  const text = data.content.filter((b) => b.type === "text").map((b) => b.text).join("\n");
-  return JSON.parse(text.replace(/```json|```/g, "").trim());
-}
+function loadSave() { try { const r = localStorage.getItem(SAVE_KEY); return r ? JSON.parse(r) : null; } catch { return null; } }
+function writeSave(d) { try { localStorage.setItem(SAVE_KEY, JSON.stringify(d)); } catch { /* ignore */ } }
+function clearSave() { try { localStorage.removeItem(SAVE_KEY); } catch { /* ignore */ } }
 
-function generateNewCard(level, topic, avoidList) {
-  const system = `You are an English conversation coach running a "sokuji eisakubun" (instant English composition) drill for a Japanese learner.
-Generate ONE new Japanese sentence suitable for level ${level} (${LEVELS[level].desc}) and topic ${topic === "フリートーク" ? "any everyday topic, your choice" : topic}, plus one natural, idiomatic English reference translation, plus a short hint in English (a grammar point or key phrase) that does not give away the full answer.
-Sentence length guide: 初級 ~6-10 English words, 中級 ~10-16 words, 上級 ~14-22 words.
-Avoid repeating or closely resembling any of these already-used Japanese sentences: ${avoidList.join(" / ") || "(none yet)"}
-Respond with ONLY this JSON, nothing else: {"japanese": "...", "english_correct": "...", "hint": "..."}`;
-  return callClaude(system, "Generate the next card now.");
-}
-
-function generateScenarioCard(scenarioKey, avoidList) {
-  const s = SCENARIOS[scenarioKey];
-  const seed = s.seedPhrases[Math.floor(Math.random() * s.seedPhrases.length)];
-  const system = `You are an English coach helping a Japanese-language tutor build the specific English she needs while teaching her own lessons in English.
-Scenario: "${s.label}" (${s.desc}).
-Base intent for this sentence (in Japanese, describing what the tutor wants to say in class): ${seed}
-Generate ONE natural Japanese instruction line describing that intent (as something to be translated into English), plus one natural, idiomatic English sentence a real online tutor would actually say in that exact classroom moment, plus a short hint in English (a key phrase or structure) that does not give away the full answer.
-Keep the English reference sentence short and speakable (roughly 6-14 words), the kind of line said live during a lesson.
-Avoid repeating or closely resembling any of these already-used Japanese sentences: ${avoidList.join(" / ") || "(none yet)"}
-Respond with ONLY this JSON, nothing else: {"japanese": "...", "english_correct": "...", "hint": "..."}`;
-  return callClaude(system, "Generate the next card now.");
-}
-
-function evaluateAnswer(japanese, reference, userAnswer) {
-  const system = `You are a warm, encouraging English conversation coach speaking live with a Japanese learner during a speaking drill. The learner heard a Japanese sentence and tried to say its English translation out loud; their answer was captured by speech-to-text, so minor transcription glitches (missing articles, homophones, punctuation) may not reflect a real mistake — use judgment.
-Always respond in English, in a natural SPOKEN style (1-2 short sentences, like a real coach talking, not written notes or bullet points), since your feedback will be read aloud by text-to-speech.
-The reference translation is a guide, not the only acceptable answer — accept valid natural alternatives as correct.
-Japanese sentence: "${japanese}"
-Reference translation: "${reference}"
-Respond with ONLY this JSON, nothing else:
-{"score": "perfect" | "good" | "needs_improvement", "feedback": "short spoken-style coaching feedback", "corrected_sentence": "the best natural English version", "encouragement": "a short upbeat phrase"}`;
-  return callClaude(system, `The learner's spoken answer was: "${userAnswer}"`);
-}
-
-function evaluateScenarioAnswer(japanese, reference, userAnswer, scenarioKey) {
-  const s = SCENARIOS[scenarioKey];
-  const system = `You are a warm, encouraging English coach helping a Japanese-language tutor rehearse the English she'll use live while teaching her own students, in the scenario "${s.label}" (${s.desc}). She heard a Japanese instruction line and tried to say its English classroom-appropriate version out loud; her answer was captured by speech-to-text, so minor transcription glitches (missing articles, homophones, punctuation) may not reflect a real mistake — use judgment.
-Always respond in English, in a natural SPOKEN style (1-2 short sentences, like a real coach talking, not written notes or bullet points), since your feedback will be read aloud by text-to-speech.
-Judge naturalness for an actual live teaching moment, not just grammatical correctness — the reference translation is a guide, not the only acceptable answer.
-Japanese instruction line: "${japanese}"
-Reference translation: "${reference}"
-Respond with ONLY this JSON, nothing else:
-{"score": "perfect" | "good" | "needs_improvement", "feedback": "short spoken-style coaching feedback", "corrected_sentence": "the best natural classroom English version", "encouragement": "a short upbeat phrase"}`;
-  return callClaude(system, `The learner's spoken answer was: "${userAnswer}"`);
-}
-
-// 課別レッスン用の評価。activity で「文法説明」か「授業運営」かを切り替える。
-function evaluateLessonAnswer(japanese, reference, userAnswer, activity, pointLabel) {
-  const context = activity === "explain"
-    ? `She is practicing how to EXPLAIN a Japanese grammar point ("${pointLabel}") in clear, simple English to a beginner student. Judge whether her explanation is clear, accurate, and easy for a learner to follow — not whether it matches the reference word-for-word.`
-    : `She is practicing the spoken English she'll use to RUN a class activity and manage the lesson (giving instructions, starting a drill, asking a question, correcting, encouraging) for the grammar point "${pointLabel}". Judge whether it sounds like natural, friendly classroom English a real tutor would actually say live.`;
-  const system = `You are a warm, encouraging English coach helping a Japanese-language tutor rehearse the English she uses while teaching her own students in English. ${context}
-She heard a Japanese line describing what she wants to say or explain, and tried to say the English version out loud; her answer was captured by speech-to-text, so minor transcription glitches (missing articles, homophones, punctuation) may not reflect a real mistake — use judgment.
-Always respond in English, in a natural SPOKEN style (1-2 short sentences, like a real coach talking, not written notes or bullet points), since your feedback will be read aloud by text-to-speech.
-The reference is a guide, not the only acceptable answer — accept valid natural alternatives. If she referenced the Japanese example words in romaji, that's fine and natural for a tutor.
-Japanese line: "${japanese}"
-Reference English: "${reference}"
-Respond with ONLY this JSON, nothing else:
-{"score": "perfect" | "good" | "needs_improvement", "feedback": "short spoken-style coaching feedback", "corrected_sentence": "the best natural English version", "encouragement": "a short upbeat phrase"}`;
-  return callClaude(system, `The learner's spoken answer was: "${userAnswer}"`);
-}
-
-// --- Speech recognition ---
-// Some browsers occasionally never fire onend/onerror after recog.start(),
-// leaving the UI stuck on "listening" forever. A hard timeout guarantees
-// we always recover, even if the browser's event never arrives.
+// --- 音声入力 ---
 const SPEECH_TIMEOUT_MS = 9000;
-
 function useSpeechInput() {
   const [listening, setListening] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [alternatives, setAlternatives] = useState([]);
   const [supported, setSupported] = useState(true);
-  const recogRef = useRef(null);
-  const timeoutRef = useRef(null);
+  const recogRef = useRef(null); const timeoutRef = useRef(null);
 
   useEffect(() => {
     const Impl = window.SpeechRecognition || window.webkitSpeechRecognition;
     setSupported(!!Impl);
   }, []);
-
-  const clearSafetyTimeout = () => {
-    if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
-  };
-
-  const start = useCallback((lang) => {
+  const clearSafety = () => { if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; } };
+  const start = (lang) => {
     const Impl = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!Impl) { setSupported(false); return; }
-    setTranscript("");
-    setAlternatives([]);
+    setTranscript(""); setAlternatives([]);
     const recog = new Impl();
-    recog.lang = lang;
-    recog.interimResults = true;
-    recog.continuous = false;
-    recog.maxAlternatives = 5;
+    recog.lang = lang; recog.interimResults = true; recog.continuous = false; recog.maxAlternatives = 5;
     recog.onresult = (e) => {
       let text = "";
       for (let i = 0; i < e.results.length; i++) text += e.results[i][0].transcript;
       setTranscript(text);
-      // 認識エンジンが返す第2〜第5候補も収集する。
-      // 各セグメントで候補jが無ければ第1候補で埋めて文をつなぐ。
       const cands = new Set();
       for (let j = 0; j < 5; j++) {
-        let t = "";
-        let found = j === 0;
+        let t = "", found = j === 0;
         for (let i = 0; i < e.results.length; i++) {
           const alt = e.results[i][j];
-          if (alt) { t += alt.transcript; found = true; }
-          else t += e.results[i][0].transcript;
+          if (alt) { t += alt.transcript; found = true; } else t += e.results[i][0].transcript;
         }
         if (found && t.trim()) cands.add(t.trim());
       }
       setAlternatives([...cands]);
     };
-    recog.onerror = (e) => {
-      if (e.error === "not-allowed" || e.error === "service-not-allowed") setSupported(false);
-      clearSafetyTimeout();
-      setListening(false);
-    };
-    recog.onend = () => {
-      clearSafetyTimeout();
-      setListening(false);
-    };
+    recog.onerror = (e) => { if (e.error === "not-allowed" || e.error === "service-not-allowed") setSupported(false); clearSafety(); setListening(false); };
+    recog.onend = () => { clearSafety(); setListening(false); };
     recogRef.current = recog;
     setListening(true);
     try { recog.start(); } catch { setListening(false); return; }
-    clearSafetyTimeout();
-    timeoutRef.current = setTimeout(() => {
-      try { recog.stop(); } catch { /* ignore */ }
-      // Force the UI to unstick even if the browser never calls onend at all.
-      setListening(false);
-    }, SPEECH_TIMEOUT_MS);
-  }, []);
-
-  const stop = useCallback(() => {
-    clearSafetyTimeout();
-    try { recogRef.current?.stop(); } catch { /* ignore */ }
-  }, []);
-
+    clearSafety();
+    timeoutRef.current = setTimeout(() => { try { recog.stop(); } catch { /* ignore */ } setListening(false); }, SPEECH_TIMEOUT_MS);
+  };
+  const stop = () => { clearSafety(); try { recogRef.current?.stop(); } catch { /* ignore */ } };
   return { listening, transcript, alternatives, supported, start, stop };
 }
 
-// --- localStorage helpers (Netlify版はwindow.storageが使えないのでlocalStorageを使う) ---
-function loadData() {
-  try {
-    const raw = localStorage.getItem(DATA_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
-}
-function saveData(deck, stats, settings) {
-  try { localStorage.setItem(DATA_KEY, JSON.stringify({ deck, stats, settings })); } catch { /* ignore */ }
-}
-function loadPronData() {
-  try {
-    const raw = localStorage.getItem(PRON_DATA_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch { return null; }
-}
-function savePronData(data) {
-  try { localStorage.setItem(PRON_DATA_KEY, JSON.stringify(data)); } catch { /* ignore */ }
+function pickQuestion(mode, prev) {
+  const pool = mode === "junior" ? JUNIOR_QUESTIONS : SENIOR_QUESTIONS;
+  let q;
+  do { q = pool[Math.floor(Math.random() * pool.length)]; } while (pool.length > 1 && q === prev);
+  return q;
 }
 
-export default function ShunkanEisakubunCoach() {
-  const [stage, setStage] = useState("onboarding");
-  const [mode, setMode] = useState("practice"); // "practice" | "lesson" | "scenario" | "pronunciation"
-  const [scenarioKey, setScenarioKey] = useState("greeting");
-  const [settings, setSettings] = useState({ level: "中級", topic: "日常会話" });
-  const [deck, setDeck] = useState([]);
-  const [stats, setStats] = useState({ totalReviewed: 0, streak: 0, lastDate: null });
-  const [loaded, setLoaded] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+// ===========================================================================
+// マップ生成
+// ===========================================================================
+function buildMap(stage) {
+  const sceneKey = sceneForStage(stage);
+  const count = Math.min(3 + Math.floor(stage / 2), 6);
+  const need = count + (stage % 5 === 0 ? 1 : 0);
 
-  // 課別レッスンモードの選択状態
-  const [lessonId, setLessonId] = useState("lesson13");
-  const [lessonActivity, setLessonActivity] = useState("explain"); // "explain" | "run"
-  const [lessonPointId, setLessonPointId] = useState("all");
-
-  const [greetingText, setGreetingText] = useState("");
-  const queueRef = useRef([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [currentCard, setCurrentCard] = useState(null);
-  const [currentType, setCurrentType] = useState(null);
-  const [phase, setPhase] = useState("prompt");
-  const [showHint, setShowHint] = useState(false);
-  const [answerText, setAnswerText] = useState("");
-  const [lastAnswer, setLastAnswer] = useState("");
-  const [evalResult, setEvalResult] = useState(null);
-  const [repeatNote, setRepeatNote] = useState(null);
-  const [lessonResults, setLessonResults] = useState([]);
-  const [summaries, setSummaries] = useState([]);
-  const [error, setError] = useState(null);
-  const [micHint, setMicHint] = useState(null);
-  const failedStepRef = useRef(null);
-  const wasListeningRef = useRef(false);
-
-  // Pronunciation practice state
-  const [pronCategory, setPronCategory] = useState("v_b");
-  const [pronQueue, setPronQueue] = useState([]);
-  const [pronIndex, setPronIndex] = useState(0);
-  const [pronPhase, setPronPhase] = useState("ready"); // "ready" | "listening" | "result"
-  const [pronResults, setPronResults] = useState([]);
-  const [pronData, setPronData] = useState({});
-
-  const speech = useSpeechInput();
-  const scrollRef = useRef(null);
-
-  useEffect(() => {
-    const saved = loadData();
-    if (saved) {
-      setDeck(saved.deck || []);
-      setSettings(saved.settings || { level: "中級", topic: "日常会話" });
-      let streak = saved.stats?.streak || 0;
-      if (saved.stats?.lastDate) {
-        const diff = Math.round((new Date(todayStr()) - new Date(saved.stats.lastDate)) / 86400000);
-        if (diff >= 2) streak = 0;
+  // 歩ける場所が せますぎる マップは作り直す(敵が置けず 進めなくなるのを防ぐ)
+  for (let attempt = 0; attempt < 40; attempt++) {
+    // タイル: 0=草 1=草むら(ランダム遭遇) 2=木(通れない) 3=石(通れない)
+    const tiles = [];
+    for (let y = 0; y < H; y++) {
+      const row = [];
+      for (let x = 0; x < W; x++) {
+        const r = Math.random();
+        if (x === 0 && y === 0) row.push(0);
+        else if (r < 0.09) row.push(2);
+        else if (r < 0.12) row.push(3);
+        else if (r < 0.34) row.push(1);
+        else row.push(0);
       }
-      setStats({ ...(saved.stats || {}), streak, totalReviewed: saved.stats?.totalReviewed || 0 });
+      tiles.push(row);
     }
-    const savedPron = loadPronData();
-    if (savedPron) setPronData(savedPron);
-    setLoaded(true);
-  }, []);
+
+    // スタートから歩いて行けるマスだけ列挙(壁に囲まれた所に敵を置くと詰むため)
+    const reach = new Set(["0,0"]);
+    const queue = [[0, 0]];
+    while (queue.length) {
+      const [x, y] = queue.shift();
+      for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+        const nx = x + dx, ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        if (tiles[ny][nx] >= 2) continue;
+        const k = `${nx},${ny}`;
+        if (reach.has(k)) continue;
+        reach.add(k);
+        queue.push([nx, ny]);
+      }
+    }
+
+    const spots = [...reach]
+      .map((k) => { const [x, y] = k.split(",").map(Number); return { x, y }; })
+      .filter((p) => p.x + p.y > 2);
+
+    if (spots.length < need) continue; // 敵を置ききれない → 作り直し
+
+    const shuffled = spots.sort(() => Math.random() - 0.5).slice(0, need);
+    const mobs = shuffled.map((p, i) => {
+      const isBoss = stage % 5 === 0 && i === shuffled.length - 1;
+      return { id: isBoss ? "boss" : `m${i}`, ...p, ...makeEnemy(stage, isBoss, sceneKey) };
+    });
+    return { tiles, mobs, scene: sceneKey };
+  }
+
+  // 保険:ほぼ来ないが、壁なしの平地マップにして必ず遊べるようにする
+  const tiles = Array.from({ length: H }, () => Array.from({ length: W }, () => (Math.random() < 0.25 ? 1 : 0)));
+  const spots = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (x + y > 2) spots.push({ x, y });
+  const shuffled = spots.sort(() => Math.random() - 0.5).slice(0, need);
+  const mobs = shuffled.map((p, i) => {
+    const isBoss = stage % 5 === 0 && i === shuffled.length - 1;
+    return { id: isBoss ? "boss" : `m${i}`, ...p, ...makeEnemy(stage, isBoss, sceneKey) };
+  });
+  return { tiles, mobs, scene: sceneKey };
+}
+
+// ===========================================================================
+// スタイル
+// ===========================================================================
+function blockBtn(bg, fg = "#fff") {
+  return {
+    fontFamily: FONT, background: bg, color: fg, border: `3px solid ${INK}`,
+    boxShadow: `inset -3px -3px 0 rgba(0,0,0,0.25), inset 3px 3px 0 rgba(255,255,255,0.3), 4px 4px 0 ${INK}`,
+    padding: "14px 20px", fontSize: 18, fontWeight: 700, cursor: "pointer", borderRadius: 0, lineHeight: 1.3,
+  };
+}
+const panel = {
+  background: "#cfcfcf", border: `4px solid ${INK}`,
+  boxShadow: "inset -4px -4px 0 #8f8f8f, inset 4px 4px 0 #ffffffaa",
+  borderRadius: 0, padding: 14,
+};
+
+function Frame({ shake, children }) {
+  return (
+    <div style={{ minHeight: "100vh", background: "linear-gradient(#79a6d2 0%, #a9cbe6 55%, #6aa84f 55%, #4e7a38 100%)", fontFamily: FONT, color: INK, display: "flex", flexDirection: "column", alignItems: "center", overflow: "hidden" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DotGothic16&display=swap');
+        *{box-sizing:border-box}
+        @keyframes shakeLight{0%,100%{transform:translate(0,0)}20%{transform:translate(-8px,3px) rotate(-1deg)}60%{transform:translate(8px,-3px) rotate(1deg)}}
+        @keyframes shakeHard{0%,100%{transform:translate(0,0) rotate(0)}12%{transform:translate(-16px,6px) rotate(-2deg)}28%{transform:translate(15px,-7px) rotate(2deg)}44%{transform:translate(-13px,5px) rotate(-1.5deg)}60%{transform:translate(12px,-5px) rotate(1.5deg)}80%{transform:translate(-7px,3px) rotate(-1deg)}}
+        @keyframes shakeMega{0%,100%{transform:translate(0,0) rotate(0) scale(1)}10%{transform:translate(-22px,10px) rotate(-3deg) scale(1.02)}25%{transform:translate(22px,-12px) rotate(3deg) scale(1.03)}40%{transform:translate(-20px,9px) rotate(-2.5deg)}55%{transform:translate(18px,-8px) rotate(2.5deg)}70%{transform:translate(-12px,5px) rotate(-1.5deg)}85%{transform:translate(9px,-4px) rotate(1deg)}}
+        @keyframes pop{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.3)}100%{transform:scale(1);opacity:1}}
+        @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+        @keyframes flashOut{0%{opacity:.8}100%{opacity:0}}
+        @keyframes slash{0%{opacity:0;transform:translate(-50%,-50%) scale(.4) rotate(-50deg)}35%{opacity:1}100%{opacity:0;transform:translate(-50%,-50%) scale(2) rotate(30deg)}}
+        @keyframes spark{0%{opacity:1;transform:translate(0,0) scale(1.2)}100%{opacity:0;transform:translate(var(--tx),var(--ty)) scale(.2)}}
+        @keyframes reactPop{0%{opacity:0;transform:translate(-50%,0) scale(.4)}40%{opacity:1;transform:translate(-50%,-26px) scale(1.3)}100%{opacity:0;transform:translate(-50%,-48px) scale(1)}}
+        @keyframes menacePulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+        @keyframes catJump{0%{transform:translateY(0) rotate(0)}25%{transform:translateY(-30px) rotate(-14deg)}55%{transform:translateY(-6px) rotate(10deg)}75%{transform:translateY(-14px) rotate(-4deg)}100%{transform:translateY(0)}}
+        @keyframes catSpin{0%{transform:rotate(0) scale(1)}50%{transform:rotate(360deg) scale(1.4)}100%{transform:rotate(360deg) scale(1)}}
+        @keyframes catSad{0%,100%{transform:translateY(0) rotate(0)}25%{transform:translateY(5px) rotate(-10deg)}75%{transform:translateY(2px) rotate(10deg)}}
+        @keyframes mobIdle{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+        @keyframes chestShake{0%,100%{transform:rotate(0) scale(1)}20%{transform:rotate(-8deg) scale(1.1)}60%{transform:rotate(8deg) scale(1.15)}}
+        @keyframes punchHit{0%{opacity:0;transform:translate(-50%,-50%) scale(.4) rotate(-15deg)}30%{opacity:1;transform:translate(-50%,14px) scale(1.5) rotate(8deg)}70%{opacity:1;transform:translate(-50%,40px) scale(1.2)}100%{opacity:0;transform:translate(-50%,70px) scale(.9)}}
+        @keyframes arrowFly{0%{opacity:0;transform:translate(-50%,-46px) rotate(135deg) scale(.7)}18%{opacity:1}100%{opacity:0;transform:translate(-50%,96px) rotate(135deg) scale(1.15)}}
+        .shakeLight{animation:shakeLight .4s}.shakeHard{animation:shakeHard .55s}.shakeMega{animation:shakeMega .7s}
+        .float{animation:float 2.6s infinite ease-in-out}
+        .catJump{animation:catJump .7s}.catSpin{animation:catSpin .8s}.catSad{animation:catSad .6s}
+        .mobIdle{animation:mobIdle 1.4s infinite ease-in-out}
+        .chestShake{animation:chestShake .5s infinite}
+        @media (prefers-reduced-motion: reduce){ .shakeLight,.shakeHard,.shakeMega,.float,.catJump,.catSpin,.catSad,.mobIdle,.chestShake{animation:none} }
+      `}</style>
+      <div className={shake === "mega" ? "shakeMega" : shake === "hard" ? "shakeHard" : shake === "light" ? "shakeLight" : ""}
+        style={{ width: "100%", maxWidth: 480, padding: 14 }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function HpBar({ hp, max, color }) {
+  const pct = Math.max(0, Math.round((hp / max) * 100));
+  return (
+    <div style={{ background: "#3a3a3a", border: `3px solid ${INK}`, height: 22, position: "relative", boxShadow: "inset 2px 2px 0 #00000055" }}>
+      <div style={{ width: `${pct}%`, height: "100%", background: pct > 30 ? color : "#c0392b", transition: "width .35s", boxShadow: "inset 0 3px 0 #ffffff55" }} />
+      <span style={{ position: "absolute", inset: 0, textAlign: "center", fontSize: 12, color: "#fff", lineHeight: "16px", textShadow: `1px 1px 0 ${INK}` }}>{hp} / {max}</span>
+    </div>
+  );
+}
+
+function PBadge({ n }) {
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, verticalAlign: "middle" }}>
+      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 21, height: 21, borderRadius: "50%", background: "#e8b923", color: INK, border: `2px solid ${INK}`, fontSize: 13, fontWeight: 700, lineHeight: 1 }}>P</span>
+      <b style={{ fontSize: 15 }}>{n}</b>
+    </span>
+  );
+}
+
+function Cat({ state }) {
+  const cls = state === "cheer" ? "catSpin" : state === "happy" ? "catJump" : state === "sad" ? "catSad" : "float";
+  return <div className={cls} style={{ fontSize: 44, flexShrink: 0, transformOrigin: "center bottom" }}>🐈‍⬛</div>;
+}
+
+function CatRow({ state, line }) {
+  return (
+    <div style={{ display: "flex", alignItems: "flex-end", gap: 8, margin: "10px 0" }}>
+      <Cat state={state} />
+      <div style={{ ...panel, background: "#fffef2", flex: 1, padding: "9px 11px", minHeight: 42, fontSize: 14.5, display: "flex", alignItems: "center" }}>{line}</div>
+    </div>
+  );
+}
+
+// ===========================================================================
+// 本体
+// ===========================================================================
+export default function App() {
+  const [screen, setScreen] = useState("start"); // start | map | battle | chest | gameover | bag
+  const [mode, setMode] = useState("senior");
+  const [stage, setStage] = useState(1);
+  const [hearts, setHearts] = useState(START_HEARTS);
+  const [gems, setGems] = useState(0);          // 剣のレベルを決める
+  const [bag, setBag] = useState({});           // {emoji: count}
+  const [saved, setSaved] = useState(null);
+  const [muteUI, setMuteUI] = useState(false);
+  const [showCat, setShowCat] = useState(false); // 黒猫AI対話モード
+
+  // マップ
+  const [map, setMap] = useState(null);
+  const [pos, setPos] = useState({ x: 0, y: 0 });
+  const [mapMsg, setMapMsg] = useState("");
+
+  // バトル
+  const [enemy, setEnemy] = useState(null);
+  const [enemyHp, setEnemyHp] = useState(0);
+  const [enemyMobId, setEnemyMobId] = useState(null);
+  const [question, setQuestion] = useState(null);
+  const [phase, setPhase] = useState("prompt");
+  const [result, setResult] = useState(null);
+  const [catLine, setCatLine] = useState("");
+  const [catState, setCatState] = useState("idle");
+  const [combo, setCombo] = useState(0);
+  const [typed, setTyped] = useState("");
+  const [enemyState, setEnemyState] = useState("idle");
+  const [pain, setPain] = useState(null);
+  const [hitId, setHitId] = useState(0);
+  const [shake, setShake] = useState("");
+  const [menace, setMenace] = useState(0);
+  const [attackFx, setAttackFx] = useState(null); // 敵のこうげき演出 {id, ranged}
+
+  // 宝箱
+  const [chestLoot, setChestLoot] = useState([]);
+  const [chestOpened, setChestOpened] = useState(false);
+  const [upgradeMsg, setUpgradeMsg] = useState(null);
+
+  const answerStartRef = useRef(0);
+  const wasListeningRef = useRef(false);
+  const snapRef = useRef(null);
+  const heardRef = useRef("");
+  const speech = useSpeechInput();
+
+  const sword = swordFor(gems);
+  const nextSw = nextSword(gems);
+
+  useEffect(() => { setSaved(loadSave()); }, []);
+
+  const flashShake = (k) => { setShake(k); setTimeout(() => setShake(""), 700); };
+  const bumpCat = (s) => { setCatState(s); setTimeout(() => setCatState("idle"), 800); };
+  // 敵がこうげきしてくる演出(パンチ or 矢)。ranged=true なら弓・まほう
+  const showAttack = (ranged) => {
+    const id = Date.now();
+    setAttackFx({ id, ranged: !!ranged });
+    setTimeout(() => setAttackFx((a) => (a && a.id === id ? null : a)), 560);
+  };
+
+  // ---------------- マップ移動 ----------------
+  const tryMove = useCallback((dx, dy) => {
+    if (screen !== "map" || !map) return;
+    const nx = pos.x + dx, ny = pos.y + dy;
+    if (nx < 0 || ny < 0 || nx >= W || ny >= H) return;
+    if (map.tiles[ny][nx] >= 2) { setMapMsg("そっちは とおれないよ"); return; }
+    sfx.resume(); sfx.walk();
+    setPos({ x: nx, y: ny });
+    setMapMsg("");
+
+    // 敵とぶつかった?
+    const mob = map.mobs.find((m) => m.x === nx && m.y === ny);
+    if (mob) { startBattle(mob); return; }
+    // 草むらでランダム遭遇
+    if (map.tiles[ny][nx] === 1 && Math.random() < 0.25) {
+      startBattle({ id: `wild_${Date.now()}`, ...makeEnemy(stage, false, map.scene), wild: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen, map, pos, stage]);
+
+  // キーボード操作
+  useEffect(() => {
+    const onKey = (e) => {
+      const k = e.key;
+      if (["ArrowUp", "w", "W"].includes(k)) { e.preventDefault(); tryMove(0, -1); }
+      else if (["ArrowDown", "s", "S"].includes(k)) { e.preventDefault(); tryMove(0, 1); }
+      else if (["ArrowLeft", "a", "A"].includes(k)) { e.preventDefault(); tryMove(-1, 0); }
+      else if (["ArrowRight", "d", "D"].includes(k)) { e.preventDefault(); tryMove(1, 0); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [tryMove]);
+
+  // スワイプ操作
+  const touchRef = useRef(null);
+  const onTouchStart = (e) => { const t = e.touches[0]; touchRef.current = { x: t.clientX, y: t.clientY }; };
+  const onTouchEnd = (e) => {
+    const s = touchRef.current; if (!s) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - s.x, dy = t.clientY - s.y;
+    if (Math.abs(dx) < 24 && Math.abs(dy) < 24) return;
+    if (Math.abs(dx) > Math.abs(dy)) tryMove(dx > 0 ? 1 : -1, 0);
+    else tryMove(0, dy > 0 ? 1 : -1);
+    touchRef.current = null;
+  };
+
+  // ---------------- バトル ----------------
+  const startBattle = (mob) => {
+    sfx.encounter();
+    setEnemy(mob);
+    setEnemyHp(mob.maxHp);
+    setEnemyMobId(mob.wild ? null : mob.id);
+    setCombo(0);
+    setAttackFx(null);
+    setCatLine(
+      mob.boss
+        ? `ボスだ! ${mob.name}! きをつけて!`
+        : mob.ranged
+        ? `いわの むこうから ${mob.name}! とおくから 矢や まほうで こうげきしてくる! はやく こたえて けんで やっつけよう!`
+        : `${mob.name} が あらわれた! えいごで こうげき!`
+    );
+    setScreen("battle");
+    newQuestion(mode, null);
+  };
+
+  const newQuestion = (m, prev) => {
+    const q = pickQuestion(m, prev);
+    setQuestion(q);
+    setResult(null); setTyped(""); setPain(null);
+    setEnemyState("idle"); setMenace(0);
+    setPhase("prompt");
+    answerStartRef.current = Date.now();
+    if (m === "junior") setTimeout(() => speak(q.ja, "ja-JP"), 200);
+  };
 
   useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [phase, evalResult, repeatNote]);
-
-  // Whenever speech recognition transitions from listening -> not listening
-  // (normal end, error, or the hard safety timeout), automatically move the
-  // UI forward instead of leaving it stuck on "listening…".
-  useEffect(() => {
-    const wasListening = wasListeningRef.current;
+    const was = wasListeningRef.current;
     wasListeningRef.current = speech.listening;
-    if (!wasListening || speech.listening) return;
-
-    if (stage === "lesson") {
-      if (phase === "listening") finishListening();
-      else if (phase === "repeating") finishRepeatWithSpeech();
-    } else if (stage === "pron_session" && pronPhase === "listening") {
-      finishPronListening();
-    }
+    if (was && !speech.listening && phase === "listening") handleAnswer();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [speech.listening]);
 
-  const dueCount = deck.filter((c) => c.dueAt <= Date.now()).length;
+  // 敵の接近
+  useEffect(() => {
+    if (phase !== "prompt" || screen !== "battle") return;
+    const limit = mode === "junior" ? 22000 : 13000;
+    const t0 = Date.now(); setMenace(0);
+    let played = 0;
+    const id = setInterval(() => {
+      const m = Math.min(1, (Date.now() - t0) / limit);
+      setMenace(m);
+      const steps = Math.floor(m * 6);
+      if (m > 0.3 && steps > played) { played = steps; sfx.step(); }
+      if (m >= 1) { clearInterval(id); enemyTimeout(); }
+    }, 90);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, question, screen]);
 
-  const startQuestion = async (idx) => {
-    setError(null);
-    setCurrentIndex(idx);
-    setEvalResult(null);
-    setAnswerText("");
-    setLastAnswer("");
-    setRepeatNote(null);
-    setShowHint(false);
-    const item = queueRef.current[idx];
+  const beginListening = () => { sfx.resume(); sfx.tap(); setMenace(0); setPhase("listening"); speech.start("en-US"); };
 
-    if (item.type === "new" && !item.card) {
-      setPhase("generating");
-      const attempt = async () => {
-        try {
-          const used = queueRef.current.filter((q) => q.card).map((q) => q.card.japanese)
-            .concat(mode === "practice" ? deck.map((c) => c.japanese) : []);
-          const card = mode === "scenario"
-            ? await generateScenarioCard(scenarioKey, used)
-            : await generateNewCard(settings.level, settings.topic, used);
-          item.card = {
-            id: `c_${Date.now()}_${idx}`,
-            japanese: card.japanese,
-            english_correct: card.english_correct,
-            hint: card.hint,
-            level: mode === "scenario" ? scenarioKey : settings.level,
-            topic: mode === "scenario" ? "scenario" : settings.topic,
-            reps: 0, intervalDays: 0, ease: 2.5,
-            dueAt: Date.now(), createdAt: Date.now(),
-          };
-          setCurrentCard(item.card);
-          setCurrentType(item.type);
-          setPhase("await_answer");
-        } catch {
-          failedStepRef.current = attempt;
-          setError("Couldn't reach the coach. Let's try again.");
-          setPhase("error");
-        }
-      };
-      await attempt();
-      return;
-    }
-
-    // 事前に用意されたカード(レッスン/復習)はそのまま提示
-    setCurrentCard(item.card);
-    setCurrentType(item.type);
-    if (mode === "lesson") {
-      // 課別レッスンは問題文を文字で見せるだけ。日本語の読み上げはしない。
-      setPhase("await_answer");
-      return;
-    }
-    setPhase("await_answer");
-  };
-
-  const beginListening = () => { setMicHint(null); setPhase("listening"); speech.start("en-US"); };
-
-  const submitAnswer = async (answer) => {
-    setLastAnswer(answer);
-
-    if (mode === "lesson") {
-      // 課別レッスンはAIの解説・採点なし。
-      // 聞き取り結果と模範解答だけを見せて、模範解答を読み上げる。
-      const result = {
-        score: null,
-        feedback: null,
-        corrected_sentence: currentCard.english_correct,
-      };
-      setEvalResult(result);
-      setPhase("result");
-      await speak(currentCard.english_correct, "en-US");
-      return;
-    }
-
-    setPhase("evaluating");
-    const attempt = async () => {
-      try {
-        const result = mode === "scenario"
-          ? await evaluateScenarioAnswer(currentCard.japanese, currentCard.english_correct, answer, scenarioKey)
-          : await evaluateAnswer(currentCard.japanese, currentCard.english_correct, answer);
-        setEvalResult(result);
-        setPhase("result");
-        if (mode !== "scenario") {
-          await speak(result.feedback, "en-US");
-          await speak(result.corrected_sentence || currentCard.english_correct, "en-US");
-        }
-      } catch {
-        failedStepRef.current = attempt;
-        setError("The coach had trouble checking that. Let's retry.");
-        setPhase("error");
-      }
-    };
-    await attempt();
-  };
-
-  const finishListening = () => {
-    speech.stop();
-    // 第1候補だけでなく全候補の中から、模範解答に最も近いものを採用する。
-    // 正しく言えたのに聞き間違いで減点される事故を減らす。
-    const finalAnswer = pickBestCandidate(
-      [speech.transcript, ...speech.alternatives],
-      currentCard?.english_correct
-    );
-    if (finalAnswer) {
-      submitAnswer(finalAnswer);
+  const enemyTimeout = () => {
+    setEnemyState("attack"); setTimeout(() => setEnemyState("idle"), 400);
+    showAttack(enemy?.ranged);
+    flashShake("hard"); sfx.miss(); bumpCat("sad");
+    const atkLine = enemy?.ranged ? "矢が とんできた! いわの むこうから こうげき! はやく こたえて!" : "あぶない! てきの こうげき! はやく こたえよう!";
+    if (mode === "senior") {
+      const nh = Math.max(0, hearts - 1);
+      setHearts(nh);
+      if (nh <= 0) { setCatLine("うっ…やられちゃった。"); sfx.defeat(); setTimeout(() => setScreen("gameover"), 700); return; }
+      setCatLine(atkLine);
     } else {
-      setMicHint("うまく聞き取れませんでした。もう一度タップして話してみてください。");
-      setPhase("await_answer");
+      setCatLine(enemy?.ranged ? "矢が とんできた! がんばって こえに だそう!" : "てきが ちかづいてきた! がんばって こえに だそう!");
     }
+    newQuestion(mode, question);
   };
 
-  const beginRepeat = () => { setMicHint(null); setPhase("repeating"); speech.start("en-US"); };
-
-  const recordResult = (note) => {
-    setRepeatNote(note);
-    setLessonResults((prev) => [...prev, { card: currentCard, type: currentType, userAnswer: lastAnswer, ...evalResult }]);
-    setPhase("repeat_ack");
-  };
-
-  const finishRepeatWithSpeech = () => {
-    speech.stop();
-    const target = evalResult.corrected_sentence || currentCard.english_correct;
-    const candidates = [speech.transcript, ...speech.alternatives]
-      .map((c) => (c || "").trim()).filter(Boolean);
-    const sim = candidates.reduce((m, c) => Math.max(m, similarity(c, target)), 0);
-    recordResult(sim > 0.55 ? "Nice, well said! 👏" : "Good effort — keep repeating and it'll come naturally.");
-  };
-
-  const skipRepeat = () => recordResult(null);
-
-  const goNext = () => {
-    const nextIdx = currentIndex + 1;
-    if (nextIdx >= queueRef.current.length) finishLesson();
-    else startQuestion(nextIdx);
-  };
-
-  const finishLesson = () => {
-    const today = todayStr();
-    const diff = stats.lastDate ? Math.round((new Date(today) - new Date(stats.lastDate)) / 86400000) : null;
-    const streak = stats.lastDate === today ? stats.streak : (diff === 1 || stats.lastDate === null ? stats.streak + 1 : 1);
-    const nextStats = { totalReviewed: stats.totalReviewed + lessonResults.length, streak, lastDate: today };
-
-    // practice以外(課別レッスン/シナリオ)はSRSデッキに保存せず、その場の集計だけ表示
-    if (mode !== "practice") {
-      const updatedSummaries = lessonResults.map((r) => ({ ...r, dueInDays: null }));
-      setStats(nextStats);
-      setSummaries(updatedSummaries);
-      saveData(deck, nextStats, settings);
-      setStage("summary");
+  const handleAnswer = () => {
+    const cands = [speech.transcript, ...speech.alternatives].map((s) => (s || "").trim()).filter(Boolean);
+    if (!cands.length) {
+      setCatLine("ん?きこえなかったよ。もういっかい ボタンを おして いってみて!");
+      setPhase("prompt"); answerStartRef.current = Date.now();
       return;
     }
-
-    let nextDeck = [...deck];
-    const updatedSummaries = [];
-    for (const r of lessonResults) {
-      const quality = r.score === "perfect" ? 5 : r.score === "good" ? 4 : 2;
-      const idx = nextDeck.findIndex((c) => c.id === r.card.id);
-      const base = idx >= 0 ? nextDeck[idx] : r.card;
-      const scheduled = scheduleCard(base, quality);
-      if (idx >= 0) nextDeck[idx] = scheduled; else nextDeck.push(scheduled);
-      updatedSummaries.push({ ...r, dueInDays: scheduled.intervalDays });
-    }
-
-    setDeck(nextDeck);
-    setStats(nextStats);
-    setSummaries(updatedSummaries);
-    saveData(nextDeck, nextStats, settings);
-    setStage("summary");
+    const elapsed = Date.now() - answerStartRef.current;
+    const j = judgeAnswer(cands, question.en, { mode });
+    heardRef.current = j.heard || cands[0] || "";
+    snapRef.current = { enemyHp, hearts, combo };
+    applyOutcome(j.result, { crit: j.result === "correct" && elapsed < 6000, hints: j.hints });
   };
 
-  const startGreeting = async () => {
-    const queue = mode === "scenario" ? buildScenarioQueue()
-      : mode === "lesson" ? buildLessonModeQueue(LESSONS[lessonId], lessonActivity, lessonPointId)
-      : buildLessonQueue(deck);
-    queueRef.current = queue;
-    setLessonResults([]);
+  const submitTyped = () => {
+    if (!typed.trim()) return;
+    sfx.resume();
+    heardRef.current = typed.trim();
+    snapRef.current = { enemyHp, hearts, combo };
+    const j = judgeAnswer([typed.trim()], question.en, { mode });
+    applyOutcome(j.result, { crit: false, hints: j.hints });
+  };
 
-    // 課別レッスン・レッスンシナリオは、あいさつナレーションなしで直接1問目へ
-    if (mode === "lesson" || mode === "scenario") {
-      setStage("lesson");
-      startQuestion(0);
+  const applyOutcome = (kind, { crit = false, hints = [] } = {}) => {
+    const snap = snapRef.current;
+    let dmg = 0, newCombo = snap.combo, heartLoss = 0;
+    if (kind === "correct") {
+      dmg = crit ? Math.round(sword.dmg * 1.5) : sword.dmg;
+      newCombo = snap.combo + 1;
+      if (newCombo >= 2) dmg += 6;
+    } else if (kind === "close") { dmg = Math.round(sword.dmg * 0.35); newCombo = 0; }
+    else { newCombo = 0; heartLoss = 1; }
+
+    const newHp = Math.max(0, snap.enemyHp - dmg);
+    const newHearts = Math.max(0, snap.hearts - heartLoss);
+    const defeated = newHp <= 0 && dmg > 0;
+
+    setEnemyHp(newHp); setHearts(newHearts); setCombo(newCombo);
+
+    setHitId((n) => n + 1);
+    if (dmg > 0) {
+      setPain(PAIN[Math.floor(Math.random() * PAIN.length)]);
+      if (defeated) { setEnemyState("defeat"); sfx.defeat(); flashShake("mega"); bumpCat("cheer"); }
+      else if (crit) { setEnemyState("crit"); sfx.crit(); flashShake("mega"); bumpCat("cheer"); }
+      else { setEnemyState("hit"); sfx.hit(); flashShake("hard"); bumpCat("happy"); }
+      if (newCombo >= 2 && !defeated) setTimeout(() => sfx.combo(), 130);
+      if (!defeated) setTimeout(() => setEnemyState("idle"), 430);
+    } else if (kind === "close") {
+      setPain(null); setEnemyState("hit"); sfx.close(); flashShake("light"); bumpCat("happy");
+      setTimeout(() => setEnemyState("idle"), 300);
+    } else {
+      setPain(null); setEnemyState("attack"); sfx.miss(); flashShake("hard"); bumpCat("sad");
+      showAttack(enemy?.ranged);
+      setTimeout(() => setEnemyState("idle"), 400);
+    }
+
+    let line;
+    if (kind === "correct") {
+      if (defeated) line = "ゾンビを たおした!🎉 たからばこが おちた!";
+      else if (crit) line = "クリティカル!⚡ はやくて つよい!";
+      else if (newCombo >= 2) line = `${newCombo}コンボ!すごい!`;
+      else line = "ナイス!こうげき せいこう!";
+      if (hints && hints.length) line += ` でも「${hints[0].word}」まで いえたら もっと つよいよ⚡`;
+    } else if (kind === "close") line = "おしい!ちょっと あたった!もういっかい いえるかな?";
+    else line = "ミス!ゾンビの こうげき!でも だいじょうぶ、つぎ いこう!";
+    setCatLine(line);
+
+    setResult({ result: kind, crit, defeated, dmg, hints: hints || [], heard: heardRef.current });
+    setPhase("result");
+    setTimeout(() => speak(question.en, "en-US"), 260);
+  };
+
+  const selfSay = (saidIt) => { sfx.tap(); applyOutcome(saidIt ? "correct" : "wrong", { crit: false, hints: result?.hints || [] }); };
+
+  // バトル終了 → 宝箱 or 次の問題
+  const onBattleContinue = () => {
+    sfx.tap();
+    if (hearts <= 0) { setScreen("gameover"); return; }
+    if (enemyHp <= 0) {
+      // 倒した敵をマップから消す
+      if (enemyMobId && map) setMap({ ...map, mobs: map.mobs.filter((m) => m.id !== enemyMobId) });
+      setChestLoot(rollLoot(enemy.boss));
+      setChestOpened(false);
+      setUpgradeMsg(null);
+      setScreen("chest");
       return;
     }
-
-    let text;
-    const reviewCount = queue.filter((q) => q.type === "review").length;
-    const newCount = queue.length - reviewCount;
-    if (stats.totalReviewed === 0)
-      text = "Hi! I'm your English coach. Today we'll start with five brand-new sentences. Let's dive in!";
-    else if (reviewCount === 0)
-      text = "Welcome back! Today's lesson is five new sentences. Ready? Let's go!";
-    else if (newCount === 0)
-      text = `Welcome back! Today we're reviewing ${reviewCount} sentence${reviewCount > 1 ? "s" : ""} from before. Let's refresh your memory!`;
-    else
-      text = `Welcome back! Today: ${reviewCount} review${reviewCount > 1 ? "s" : ""} and ${newCount} new sentence${newCount > 1 ? "s" : ""}. Let's get started!`;
-
-    setGreetingText(text);
-    setStage("greeting");
-    speak(text, "en-US");
+    newQuestion(mode, question);
   };
 
-  const beginLesson = () => { setStage("lesson"); startQuestion(0); };
-
-  // ---- Pronunciation practice ----
-  const pickPronQueue = (categoryKey, data) => {
-    const items = PRONUNCIATION_CATEGORIES[categoryKey].items;
-    const scored = items.map((it) => {
-      const rec = data[it.word];
-      const acc = rec && rec.attempts > 0 ? rec.correct / rec.attempts : 0.4;
-      return { it, score: acc + Math.random() * 0.35 };
-    });
-    scored.sort((a, b) => a.score - b.score);
-    const count = Math.min(8, items.length);
-    return scored.slice(0, count).map((s) => s.it);
-  };
-
-  const startPronSession = () => {
-    setPronQueue(pickPronQueue(pronCategory, pronData));
-    setPronIndex(0);
-    setPronResults([]);
-    setPronPhase("ready");
-    setStage("pron_session");
-  };
-
-  const beginPronListening = () => {
-    setPronPhase("listening");
-    speech.start("en-US");
-  };
-
-  const finishPronListening = () => {
-    speech.stop();
-    const transcript = speech.transcript.trim();
-    const target = pronQueue[pronIndex].word;
-    // 発音練習は「その単語として認識されたか」自体がテストなので、
-    // 単語の照合は完全一致のまま。ただし第2〜第5候補のどれかに
-    // ターゲット語が含まれていれば合格にする(取りこぼし対策)。
-    const candidates = [transcript, ...speech.alternatives]
-      .map((c) => (c || "").trim()).filter(Boolean);
-    const passed = candidates.some((c) => checkPronunciation(c, target));
-    setPronResults((prev) => [...prev, { word: target, transcript, passed }]);
-    setPronPhase("result");
-  };
-
-  const retryPronItem = () => {
-    setPronResults((prev) => prev.slice(0, -1));
-    setPronPhase("ready");
-  };
-
-  const finishPronSession = () => {
-    const nextData = { ...pronData };
-    for (const r of pronResults) {
-      const rec = nextData[r.word] || { attempts: 0, correct: 0 };
-      rec.attempts += 1;
-      if (r.passed) rec.correct += 1;
-      nextData[r.word] = rec;
+  // ---------------- 宝箱 ----------------
+  const openChest = () => {
+    sfx.resume(); sfx.chest();
+    const before = swordFor(gems).name;
+    let g = gems, h = hearts;
+    const nb = { ...bag };
+    for (const l of chestLoot) {
+      g += l.gem;
+      if (l.heal) h = Math.min(MAX_HEARTS, h + l.heal);
+      nb[l.emoji] = (nb[l.emoji] || 0) + 1;
     }
-    setPronData(nextData);
-    savePronData(nextData);
-    setStage("pron_summary");
+    setGems(g); setHearts(h); setBag(nb);
+    setChestOpened(true);
+    const after = swordFor(g).name;
+    if (after !== before) {
+      setUpgradeMsg(`けんが つよくなった!→ ${after}`);
+      setTimeout(() => sfx.upgrade(), 500);
+    }
   };
 
-  const nextPronItem = () => {
-    const next = pronIndex + 1;
-    if (next >= pronQueue.length) finishPronSession();
-    else { setPronIndex(next); setPronPhase("ready"); }
+  const leaveChest = () => {
+    sfx.tap();
+    const bossDown = enemy?.boss;
+    // ボスを倒したら次のステージへ
+    if (bossDown) {
+      const next = stage + 1;
+      setStage(next);
+      setMap(buildMap(next));
+      setPos({ x: 0, y: 0 });
+      setHearts((h) => Math.min(MAX_HEARTS, h + 1));
+      setMapMsg(`ステージ ${next} に すすんだ!`);
+    } else if (map && map.mobs.length === 0) {
+      // このマップの敵を全部たおした → 次のステージ
+      const next = stage + 1;
+      setStage(next);
+      setMap(buildMap(next));
+      setPos({ x: 0, y: 0 });
+      setMapMsg(`ぜんぶ たおした!ステージ ${next} へ!`);
+    }
+    setScreen("map");
   };
 
-  const handleStart = () => {
-    if (mode === "pronunciation") startPronSession();
-    else startGreeting();
+  // ---------------- ゲーム開始 / セーブ ----------------
+  const beginGame = (m, startStage) => {
+    sfx.resume(); sfx.tap();
+    setMode(m); setStage(startStage);
+    setHearts(START_HEARTS); setGems(0); setBag({}); setCombo(0);
+    setMap(buildMap(startStage)); setPos({ x: 0, y: 0 });
+    setMapMsg("モンスターを さがして たおそう!");
+    setScreen("map");
   };
 
-  if (!loaded) return <div style={{ background: "#FBF7F0", minHeight: "100vh" }} />;
+  const resumeGame = () => {
+    const s = saved; if (!s) return;
+    sfx.resume(); sfx.tap();
+    setMode(s.mode); setStage(s.stage); setHearts(s.hearts);
+    setGems(s.gems || 0); setBag(s.bag || {}); setCombo(0);
+    setMap(buildMap(s.stage)); setPos({ x: 0, y: 0 });
+    setMapMsg("つづきから!モンスターを さがそう!");
+    setScreen("map");
+  };
 
-  // ---- Onboarding ----
-  if (stage === "onboarding") {
-    const lesson = LESSONS[lessonId];
+  const saveAndQuit = () => {
+    writeSave({ mode, stage, hearts, gems, bag, ts: Date.now() });
+    setSaved(loadSave());
+    window.speechSynthesis?.cancel();
+    sfx.tap();
+    setScreen("start");
+  };
+
+  const toggleMute = () => { muted = !muted; setMuteUI(muted); if (!muted) { sfx.resume(); sfx.tap(); } };
+
+  // ===================== スタート =====================
+  if (screen === "start") {
     return (
-      <div style={{ background: "#FBF7F0", minHeight: "100vh", fontFamily: "system-ui, sans-serif", color: "#1F2A37" }}>
-        <div style={{ maxWidth: 480, margin: "0 auto", padding: "48px 24px 32px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-            <Sparkles size={18} color="#D97757" />
-            <span style={{ fontSize: 13, letterSpacing: "0.08em", color: "#D97757", fontWeight: 600, textTransform: "uppercase" }}>AI Conversation Coach</span>
-          </div>
-          <h1 style={{ fontFamily: "Georgia, serif", fontSize: 32, lineHeight: 1.25, margin: "0 0 10px", fontWeight: 700 }}>
-            瞬間英作文<br />コーチ
-          </h1>
-          <p style={{ fontSize: 14.5, lineHeight: 1.7, color: "#4B5563", margin: "0 0 22px" }}>
-            {mode === "practice"
-              ? "Coach says a Japanese sentence out loud → you answer in English by voice → coach gives feedback → you repeat it. 5 sentences per lesson, with spaced-repetition review."
-              : mode === "lesson"
-              ? "教科書の課を題材に、①文法を初級者に英語で説明する練習と、②練習B・Cを英語で進行する(授業運営)練習ができます。日本語で「何を説明するか／何を言うか」が出るので、英語で声に出して答えましょう。"
-              : mode === "scenario"
-              ? "オンラインレッスンの場面を選んで、実際に教室で使う英語を瞬間英作文で練習します。1回5問。"
-              : "苦手な音を選んで、単語やフレーズを声に出して発音チェック。その場で聞き取り結果がわかります。"}
-          </p>
+      <Frame shake="">
+        <div style={{ textAlign: "center", marginTop: 18 }}>
+          <div className="float" style={{ fontSize: 58 }}>🗡️🧟</div>
+          <h1 style={{ fontSize: 32, margin: "6px 0 2px", textShadow: "3px 3px 0 #ffffffcc" }}>えいごバトル</h1>
+          <p style={{ fontSize: 13.5, margin: "0 0 18px", color: "#1c3b1c" }}>ぼうけんして ゾンビを たおして おたからを あつめよう!</p>
+        </div>
 
-          {/* モード切り替え(2×2) */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 24, background: "#F0EAD9", padding: 4, borderRadius: 14 }}>
-            {[
-              ["practice", "瞬間英作文"],
-              ["lesson", "課別レッスン"],
-              ["scenario", "レッスンシナリオ"],
-              ["pronunciation", "発音チェック"],
-            ].map(([key, label]) => (
-              <button key={key} onClick={() => setMode(key)}
-                style={{ padding: "10px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12.5, background: mode === key ? "#1F2A37" : "transparent", color: mode === key ? "#FBF7F0" : "#6B7280" }}>
-                {label}
-              </button>
-            ))}
+        {saved && (
+          <div style={{ ...panel, marginBottom: 14, background: "#fff3d6" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>
+              💾 まえの つづき(ステージ {saved.stage} / {"❤️".repeat(saved.hearts)} / {swordFor(saved.gems || 0).emoji}{swordFor(saved.gems || 0).name})
+            </div>
+            <button onClick={resumeGame} style={{ ...blockBtn("#6AA84F"), width: "100%", marginBottom: 8 }}>▶ つづきから</button>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => beginGame(saved.mode, saved.stage)} style={{ ...blockBtn("#4a90d9"), flex: 1, fontSize: 13, padding: "10px" }}>このステージを 新規で</button>
+              <button onClick={() => { clearSave(); setSaved(null); sfx.tap(); }} style={{ ...blockBtn("#9A9A9A"), fontSize: 13, padding: "10px 12px" }}>けす</button>
+            </div>
           </div>
+        )}
 
-          {mode === "practice" ? (
+        <div style={{ ...panel, marginBottom: 14 }}>
+          <div style={{ fontSize: 14, marginBottom: 10, fontWeight: 700 }}>{saved ? "さいしょから あそぶ" : "だれが あそぶ?"}</div>
+          <button onClick={() => beginGame("senior", 1)} style={{ ...blockBtn("#6AA84F"), width: "100%", marginBottom: 10, textAlign: "left" }}>
+            👦 おにいちゃん モード<br /><span style={{ fontSize: 12, fontWeight: 400 }}>にほんご を よんで えいごで こたえる</span>
+          </button>
+          <button onClick={() => beginGame("junior", 1)} style={{ ...blockBtn("#4a90d9"), width: "100%", textAlign: "left" }}>
+            🧒 おとうと モード<br /><span style={{ fontSize: 12, fontWeight: 400 }}>えを みて こえで こたえる(よみあげ あり)</span>
+          </button>
+        </div>
+
+        {!speech.supported && (
+          <div style={{ ...panel, background: "#ffe6cc", fontSize: 13 }}>
+            🎤 このブラウザは こえ入力が つかえないみたい。キーボード入力で あそべます。(Chrome だと こえで あそべます)
+          </div>
+        )}
+      </Frame>
+    );
+  }
+
+  // ===================== もちもの =====================
+  if (screen === "bag") {
+    const items = Object.entries(bag);
+    return (
+      <Frame shake="">
+        <h2 style={{ textAlign: "center", fontSize: 24, margin: "10px 0 12px", textShadow: "2px 2px 0 #ffffffaa" }}>🎒 もちもの</h2>
+        <div style={{ ...panel, marginBottom: 12, background: "#fffef2", textAlign: "center" }}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 6 }}>いまの けん</div>
+          <div style={{ fontSize: 40 }}>{sword.emoji}</div>
+          <div style={{ fontSize: 18, fontWeight: 700 }}>{sword.name}</div>
+          <div style={{ fontSize: 13, color: "#555", marginTop: 3 }}>こうげきりょく {sword.dmg}</div>
+          {nextSw && (
+            <div style={{ fontSize: 12, color: "#777", marginTop: 8 }}>
+              つぎの けん({nextSw.emoji}{nextSw.name})まで あと <b>{nextSw.need - gems}</b> P
+            </div>
+          )}
+        </div>
+        <div style={{ ...panel, marginBottom: 14, minHeight: 90 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, display: "flex", alignItems: "center", gap: 6 }}>あつめた おたから　<PBadge n={gems} /></div>
+          {items.length === 0 ? (
+            <div style={{ fontSize: 13, color: "#666" }}>まだ なにも ない。ゾンビを たおそう!</div>
+          ) : (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {items.map(([e, c]) => (
+                <div key={e} style={{ background: "#fffef2", border: `2px solid ${INK}`, padding: "6px 10px", fontSize: 20 }}>
+                  {e}<span style={{ fontSize: 13 }}>×{c}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <button onClick={() => { sfx.tap(); setScreen("map"); }} style={{ ...blockBtn("#6AA84F"), width: "100%" }}>もどる</button>
+      </Frame>
+    );
+  }
+
+  // ===================== ゲームオーバー =====================
+  if (screen === "gameover") {
+    return (
+      <Frame shake="">
+        <div style={{ textAlign: "center", marginTop: 36 }}>
+          <div className="shakeHard" style={{ fontSize: 58 }}>💥</div>
+          <h1 style={{ fontSize: 27, margin: "10px 0" }}>やられちゃった…</h1>
+          <p style={{ fontSize: 16, marginBottom: 4 }}>ステージ {stage} まで すすんだ!</p>
+          <p style={{ fontSize: 14, marginBottom: 4 }}>{sword.emoji} {sword.name}</p>
+          <p style={{ fontSize: 14, marginBottom: 22, display: "flex", justifyContent: "center", alignItems: "center", gap: 6 }}>おたから　<PBadge n={gems} /></p>
+        </div>
+        <button onClick={() => beginGame(mode, 1)} style={{ ...blockBtn("#e8a33d"), width: "100%", marginBottom: 10 }}>さいしょから ちょうせん</button>
+        <button onClick={() => { sfx.tap(); setScreen("start"); }} style={{ ...blockBtn("#9A9A9A"), width: "100%" }}>さいしょの がめんへ</button>
+      </Frame>
+    );
+  }
+
+  // ===================== 宝箱 =====================
+  if (screen === "chest") {
+    return (
+      <Frame shake={shake}>
+        <div style={{ textAlign: "center", marginTop: 20 }}>
+          <h2 style={{ fontSize: 24, margin: "0 0 4px", textShadow: "2px 2px 0 #ffffffaa" }}>
+            {enemy?.boss ? "👑 ボスを たおした!" : "ゾンビを たおした!"}
+          </h2>
+          <p style={{ fontSize: 14, marginBottom: 16 }}>たからばこが おちた!</p>
+        </div>
+
+        <div style={{ ...panel, textAlign: "center", background: "#fff3d6", padding: 22 }}>
+          {!chestOpened ? (
             <>
-              <div style={{ marginBottom: 24 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#6B7280", marginBottom: 10 }}>Level</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {Object.keys(LEVELS).map((key) => (
-                    <button key={key} onClick={() => setSettings((s) => ({ ...s, level: key }))}
-                      style={{ textAlign: "left", padding: "13px 16px", borderRadius: 12, border: settings.level === key ? "2px solid #D97757" : "1px solid #E5DFD3", background: settings.level === key ? "#FBEFE6" : "#FFFFFF", cursor: "pointer" }}>
-                      <div style={{ fontWeight: 700, fontSize: 15 }}>{LEVELS[key].label}</div>
-                      <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>{LEVELS[key].desc}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div style={{ marginBottom: 28 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#6B7280", marginBottom: 10 }}>Topic</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                  {TOPICS.map((t) => (
-                    <button key={t} onClick={() => setSettings((s) => ({ ...s, topic: t }))}
-                      style={{ padding: "9px 16px", borderRadius: 20, border: settings.topic === t ? "2px solid #1F2A37" : "1px solid #E5DFD3", background: settings.topic === t ? "#1F2A37" : "#FFFFFF", color: settings.topic === t ? "#FBF7F0" : "#1F2A37", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                      {t}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {deck.length > 0 && (
-                <div style={{ display: "flex", gap: 16, marginBottom: 24, padding: "12px 16px", background: "#FFFFFF", borderRadius: 12, border: "1px solid #E5DFD3", fontSize: 13, color: "#6B7280" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                    <Flame size={15} color="#C9A04A" />
-                    <span style={{ fontWeight: 700, color: "#1F2A37" }}>{stats.streak}</span> day streak
+              <div className="chestShake" style={{ fontSize: 80, marginBottom: 12 }}>🎁</div>
+              <button onClick={openChest} style={{ ...blockBtn("#e8b923"), width: "100%", fontSize: 20 }}>たからばこを あける!</button>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>おたから GET!</div>
+              <div style={{ display: "flex", justifyContent: "center", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
+                {chestLoot.map((l, i) => (
+                  <div key={i} style={{ animation: "pop .4s", animationDelay: `${i * 0.15}s`, animationFillMode: "backwards" }}>
+                    <div style={{ fontSize: 44 }}>{l.emoji}</div>
+                    <div style={{ fontSize: 11 }}>{l.name}</div>
+                    {l.gem > 0 && <div style={{ fontSize: 11, color: "#8a6d00", fontWeight: 700 }}>＋{l.gem}P</div>}
+                    {l.heal && <div style={{ fontSize: 11, color: "#c0392b" }}>❤️+{l.heal}</div>}
                   </div>
-                  <div>{deck.length} cards learned</div>
-                  <div>{dueCount} due today</div>
-                </div>
-              )}
-            </>
-          ) : mode === "lesson" ? (
-            <>
-              <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#6B7280", marginBottom: 10 }}>課を選択</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {Object.values(LESSONS).map((l) => (
-                    <button key={l.id} onClick={() => { setLessonId(l.id); setLessonPointId("all"); }}
-                      style={{ textAlign: "left", padding: "13px 16px", borderRadius: 12, border: lessonId === l.id ? "2px solid #D97757" : "1px solid #E5DFD3", background: lessonId === l.id ? "#FBEFE6" : "#FFFFFF", cursor: "pointer" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                        <BookOpen size={15} color={lessonId === l.id ? "#D97757" : "#9CA3AF"} />
-                        <span style={{ fontWeight: 700, fontSize: 15 }}>{l.label}</span>
-                      </div>
-                      <div style={{ fontSize: 11.5, color: "#6B7280", marginTop: 3 }}>{l.subtitle}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#6B7280", marginBottom: 10 }}>練習の種類</div>
-                <div style={{ display: "flex", gap: 8, background: "#F0EAD9", padding: 4, borderRadius: 14 }}>
-                  {[["explain", "① 文法説明"], ["run", "② 授業運営"]].map(([key, label]) => (
-                    <button key={key} onClick={() => setLessonActivity(key)}
-                      style={{ flex: 1, padding: "10px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12.5, background: lessonActivity === key ? "#1F2A37" : "transparent", color: lessonActivity === key ? "#FBF7F0" : "#6B7280" }}>
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                <div style={{ fontSize: 11.5, color: "#9CA3AF", marginTop: 8, lineHeight: 1.6 }}>
-                  {lessonActivity === "explain"
-                    ? "文法ポイントを、初級者にわかるように英語で説明する練習です。"
-                    : "練習B・Cを英語で進行する練習です（指示・質問・訂正・励まし）。"}
-                </div>
-              </div>
-
-              <div style={{ marginBottom: 28 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#6B7280", marginBottom: 10 }}>文法ポイント</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {[...lesson.points, { id: "all", label: "全ポイント まとめて練習", subtitle: "各ポイントからランダムに出題" }].map((p) => (
-                    <button key={p.id} onClick={() => setLessonPointId(p.id)}
-                      style={{ textAlign: "left", padding: "12px 16px", borderRadius: 12, border: lessonPointId === p.id ? "2px solid #1F2A37" : "1px solid #E5DFD3", background: lessonPointId === p.id ? "#1F2A37" : "#FFFFFF", color: lessonPointId === p.id ? "#FBF7F0" : "#1F2A37", cursor: "pointer" }}>
-                      <div style={{ fontWeight: 700, fontSize: 14 }}>{p.label}</div>
-                      {p.subtitle && <div style={{ fontSize: 11.5, color: lessonPointId === p.id ? "#C9BBA8" : "#9CA3AF", marginTop: 2 }}>{p.subtitle}</div>}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </>
-          ) : mode === "scenario" ? (
-            <div style={{ marginBottom: 28 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#6B7280", marginBottom: 10 }}>場面を選択</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {Object.entries(SCENARIOS).map(([key, s]) => (
-                  <button key={key} onClick={() => setScenarioKey(key)}
-                    style={{ textAlign: "left", padding: "13px 16px", borderRadius: 12, border: scenarioKey === key ? `2px solid ${s.color}` : "1px solid #E5DFD3", background: scenarioKey === key ? `${s.color}14` : "#FFFFFF", cursor: "pointer" }}>
-                    <div style={{ fontWeight: 700, fontSize: 15 }}>{s.label}</div>
-                    <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>{s.desc}</div>
-                  </button>
                 ))}
               </div>
-            </div>
-          ) : (
-            <div style={{ marginBottom: 28 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#6B7280", marginBottom: 10 }}>練習する音を選択</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {Object.entries(PRONUNCIATION_CATEGORIES).map(([key, c]) => {
-                  const acc = categoryAccuracy(key, pronData);
-                  return (
-                    <button key={key} onClick={() => setPronCategory(key)}
-                      style={{ textAlign: "left", padding: "13px 16px", borderRadius: 12, border: pronCategory === key ? `2px solid ${c.color}` : "1px solid #E5DFD3", background: pronCategory === key ? `${c.color}14` : "#FFFFFF", cursor: "pointer" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                        <div style={{ fontWeight: 700, fontSize: 15 }}>{c.label}</div>
-                        {acc != null && <div style={{ fontSize: 11, color: "#9CA3AF" }}>正答率 {Math.round(acc * 100)}%</div>}
-                      </div>
-                      <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>{c.desc}</div>
-                    </button>
-                  );
-                })}
+              {upgradeMsg && (
+                <div style={{ background: "#6AA84F", color: "#fff", border: `3px solid ${INK}`, padding: "10px", fontSize: 16, fontWeight: 700, marginBottom: 12, animation: "pop .5s" }}>
+                  ⚡ {upgradeMsg}
+                </div>
+              )}
+              <div style={{ fontSize: 13, marginBottom: 12 }}>
+                いまの けん: {sword.emoji}{sword.name}(こうげき {sword.dmg})
+                {nextSw && <div style={{ fontSize: 11.5, color: "#666", marginTop: 3 }}>つぎまで あと {nextSw.need - gems} P</div>}
               </div>
-            </div>
+              <button onClick={leaveChest} style={{ ...blockBtn("#6AA84F"), width: "100%" }}>ぼうけんに もどる →</button>
+            </>
           )}
-
-          <button onClick={handleStart}
-            style={{ width: "100%", padding: "16px", borderRadius: 14, background: "#D97757", color: "#fff", border: "none", fontSize: 16, fontWeight: 700, cursor: "pointer", boxShadow: "0 4px 14px rgba(217,119,87,0.35)" }}>
-            {mode === "pronunciation" ? "練習をはじめる" : mode === "lesson" ? "レッスンを始める" : "Start Lesson"}
-          </button>
         </div>
-      </div>
+        <CatRow state={catState} line={chestOpened ? "やったね!けんが つよくなると もっと かんたんに たおせるよ!" : "なにが はいってるかな?"} />
+      </Frame>
     );
   }
 
-  // ---- Greeting ----
-  if (stage === "greeting") {
+  // ===================== マップ(あるく) =====================
+  if (screen === "map" && map) {
+    const sc = SCENES[map.scene] || SCENES.wasteland;
+    const TILE = Math.floor(Math.min(440, (typeof window !== "undefined" ? window.innerWidth : 400) - 40) / W);
+    const tileBg = (t) => (t === 0 ? sc.ground : t === 1 ? sc.grass : t === 2 ? sc.tree : sc.rock);
+    const grassChar = map.scene === "temple" ? "🦴" : map.scene === "base" ? "📦" : "🌿";
+    const treeChar = map.scene === "wasteland" ? "🌲" : "🪨";
+    const tileChar = (t) => (t === 1 ? grassChar : t === 2 ? treeChar : t === 3 ? "🪨" : "");
     return (
-      <div style={{ background: "#FBF7F0", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "system-ui, sans-serif", color: "#1F2A37" }}>
-        <div style={{ maxWidth: 420, padding: 32, textAlign: "center" }}>
-          <div style={{ width: 64, height: 64, borderRadius: 20, background: "#D97757", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
-            <Volume2 size={28} color="#fff" />
-          </div>
-          <p style={{ fontSize: 18, lineHeight: 1.6, fontWeight: 600, marginBottom: 28 }}>{greetingText}</p>
-          <button onClick={beginLesson}
-            style={{ padding: "14px 28px", borderRadius: 14, background: "#1F2A37", color: "#FBF7F0", border: "none", fontSize: 15, fontWeight: 700, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 8 }}>
-            Begin Lesson <ChevronRight size={17} />
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ---- Summary ----
-  if (stage === "summary") {
-    const correct = summaries.filter((s) => s.score !== "needs_improvement").length;
-    return (
-      <div style={{ background: "#FBF7F0", minHeight: "100vh", fontFamily: "system-ui, sans-serif", color: "#1F2A37" }}>
-        <div style={{ maxWidth: 480, margin: "0 auto", padding: "40px 20px" }}>
-          <div style={{ textAlign: "center", marginBottom: 24 }}>
-            <Sparkles size={26} color="#D97757" />
-            <h2 style={{ fontFamily: "Georgia, serif", fontSize: 24, margin: "8px 0 4px" }}>Lesson Complete</h2>
-            <p style={{ color: "#6B7280", fontSize: 14, margin: 0 }}>
-              {mode === "lesson" ? `${summaries.length}問 練習しました` : `${correct} / ${summaries.length} nailed it`}
-            </p>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 28 }}>
-            {summaries.map((s, i) => {
-              const meta = SCORE_META[s.score];
-              return (
-                <div key={i} style={{ background: "#fff", border: "1px solid #E5DFD3", borderRadius: 12, padding: "12px 14px" }}>
-                  {(meta || s.dueInDays != null) && (
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-                      {meta ? (
-                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                          <meta.Icon size={14} color={meta.color} />
-                          <span style={{ fontSize: 12, fontWeight: 700, color: meta.color }}>{meta.label}</span>
-                        </div>
-                      ) : <span />}
-                      {s.dueInDays != null && <span style={{ fontSize: 11.5, color: "#9CA3AF" }}>next review in {s.dueInDays}d</span>}
-                    </div>
-                  )}
-                  <div style={{ fontFamily: "Georgia, serif", fontSize: 14.5, marginBottom: 3 }}>{s.card.japanese}</div>
-                  <div style={{ fontSize: 12.5, color: "#6B7280" }}>{s.corrected_sentence || s.card.english_correct}</div>
-                  {s.userAnswer && <div style={{ fontSize: 12, color: "#9CA3AF", marginTop: 2 }}>あなたの発話: 「{s.userAnswer}」</div>}
-                </div>
-              );
-            })}
-          </div>
-          <div style={{ display: "flex", gap: 16, marginBottom: 24, padding: "12px 16px", background: "#fff", borderRadius: 12, border: "1px solid #E5DFD3", fontSize: 13, color: "#6B7280", justifyContent: "center" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-              <Flame size={15} color="#C9A04A" />
-              <span style={{ fontWeight: 700, color: "#1F2A37" }}>{stats.streak}</span> day streak
-            </div>
-            {mode === "practice" && <div>{deck.length} cards in deck</div>}
-          </div>
-          <button onClick={() => setStage("onboarding")}
-            style={{ width: "100%", padding: "15px", borderRadius: 14, background: "#1F2A37", color: "#FBF7F0", border: "none", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
-            Done
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  // ---- Pronunciation session ----
-  if (stage === "pron_session") {
-    const cat = PRONUNCIATION_CATEGORIES[pronCategory];
-    const item = pronQueue[pronIndex];
-    const lastResult = pronResults[pronResults.length - 1];
-    return (
-      <div style={{ background: "#FBF7F0", minHeight: "100vh", display: "flex", flexDirection: "column", fontFamily: "system-ui, sans-serif", color: "#1F2A37" }}>
-        <style>{`
-          @keyframes pulseRing { 0%{box-shadow:0 0 0 0 rgba(217,119,87,0.45)} 70%{box-shadow:0 0 0 14px rgba(217,119,87,0)} 100%{box-shadow:0 0 0 0 rgba(217,119,87,0)} }
-          .mic-pulse{animation:pulseRing 1.6s infinite}
-        `}</style>
-
-        <div style={{ position: "sticky", top: 0, background: "#FBF7F0", borderBottom: "1px solid #E5DFD3", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", zIndex: 10 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 30, height: 30, borderRadius: 8, background: cat.color, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Mic size={15} color="#fff" />
-            </div>
-            <div>
-              <div style={{ fontSize: 13.5, fontWeight: 700 }}>{pronIndex + 1} / {pronQueue.length}</div>
-              <div style={{ fontSize: 11, color: "#9CA3AF" }}>{cat.label} の発音チェック</div>
-            </div>
-          </div>
-          <button onClick={() => setStage("onboarding")} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12.5, color: "#6B7280", fontWeight: 600 }}>
-            終了
-          </button>
-        </div>
-
-        <div style={{ flex: 1, overflowY: "auto", padding: "20px 16px 24px", display: "flex", flexDirection: "column", gap: 16, alignItems: "center" }}>
-          <div style={{ width: "100%", maxWidth: 440 }}>
-            <div style={{ background: "#FFFFFF", border: "1px solid #E5DFD3", borderRadius: 18, padding: "24px 20px", boxShadow: "0 2px 10px rgba(31,42,55,0.06)", textAlign: "center" }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: cat.color, letterSpacing: "0.05em" }}>{cat.label.toUpperCase()}</span>
-              <div style={{ fontFamily: "Georgia, serif", fontSize: 30, fontWeight: 700, margin: "10px 0 4px" }}>{item.word}</div>
-              {item.ipa && <div style={{ fontSize: 14, color: "#9CA3AF", marginBottom: 4 }}>{item.ipa}</div>}
-              {item.note && <div style={{ fontSize: 12.5, color: "#6B7280", marginBottom: 8 }}>{item.note}</div>}
-
-              <button onClick={() => speak(item.word, "en-US")}
-                style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "none", border: `1px solid ${cat.color}`, color: cat.color, borderRadius: 20, padding: "7px 16px", fontSize: 12.5, fontWeight: 600, cursor: "pointer", marginTop: 8 }}>
-                <Volume2 size={14} /> お手本を聞く
-              </button>
-
-              {pronPhase === "ready" && (
-                speech.supported ? (
-                  <div style={{ marginTop: 22 }}>
-                    <button onClick={beginPronListening} className="mic-pulse"
-                      style={{ width: 60, height: 60, borderRadius: "50%", background: cat.color, border: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-                      <Mic size={24} color="#fff" />
-                    </button>
-                    <div style={{ fontSize: 12.5, color: "#9CA3AF", marginTop: 8 }}>タップして発音してみましょう</div>
-                  </div>
-                ) : (
-                  <div style={{ marginTop: 20 }}>
-                    <p style={{ fontSize: 12.5, color: "#C9694F", marginBottom: 12 }}>このブラウザでは音声認識が使えないため、自動チェックはできません。お手本を聞いて発音を練習してから次へ進みましょう。</p>
-                    <button onClick={nextPronItem}
-                      style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#1F2A37", color: "#fff", border: "none", borderRadius: 20, padding: "10px 20px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                      <SkipForward size={14} /> 次へ
-                    </button>
-                  </div>
-                )
-              )}
-
-              {pronPhase === "listening" && (
-                <div style={{ marginTop: 22 }}>
-                  <div style={{ minHeight: 24, fontSize: 15, marginBottom: 12, fontStyle: speech.transcript ? "normal" : "italic", color: speech.transcript ? "#1F2A37" : "#9CA3AF" }}>
-                    {speech.transcript || "聞き取り中…"}
-                  </div>
-                  <button onClick={finishPronListening}
-                    style={{ width: 56, height: 56, borderRadius: "50%", background: "#1F2A37", border: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-                    <Square size={18} color="#fff" fill="#fff" />
-                  </button>
-                  <div style={{ fontSize: 12.5, color: "#9CA3AF", marginTop: 8 }}>言い終わったらタップ(反応がない場合も自動で先に進みます)</div>
-                </div>
-              )}
-
-              {pronPhase === "result" && lastResult && (
-                <div style={{ marginTop: 20 }}>
-                  <div style={{ display: "inline-flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
-                    {lastResult.passed
-                      ? <><CheckCircle2 size={16} color="#7A8B6F" /><span style={{ color: "#7A8B6F", fontWeight: 700, fontSize: 13 }}>聞き取れました!</span></>
-                      : <><AlertCircle size={16} color="#C9694F" /><span style={{ color: "#C9694F", fontWeight: 700, fontSize: 13 }}>もう少し</span></>}
-                  </div>
-                  <div style={{ padding: "10px 12px", background: "#F7F4EC", borderRadius: 10, fontSize: 13.5, color: "#374151", marginBottom: 16 }}>
-                    認識された発音: 「{lastResult.transcript || "(聞き取れませんでした)"}」
-                  </div>
-                  <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-                    <button onClick={retryPronItem}
-                      style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#FFFFFF", border: "1px solid #E5DFD3", color: "#1F2A37", borderRadius: 20, padding: "10px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                      <RotateCcw size={14} /> もう一度
-                    </button>
-                    <button onClick={nextPronItem}
-                      style={{ display: "inline-flex", alignItems: "center", gap: 6, background: cat.color, color: "#fff", border: "none", borderRadius: 20, padding: "10px 18px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
-                      {pronIndex + 1 >= pronQueue.length ? "完了" : "次へ"} <ChevronRight size={14} />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+      <Frame shake="">
+        {/* ステータス */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, fontSize: 17 }}>
+          <div>{"❤️".repeat(hearts)} <span style={{ fontSize: 13, fontWeight: 700 }}>{hearts}/{MAX_HEARTS}</span></div>
+          <div style={{ fontSize: 13, fontWeight: 700 }}>ステージ {stage}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <button onClick={() => { sfx.tap(); setShowCat(true); }} style={{ ...blockBtn("#2b2b33"), padding: "5px 8px", fontSize: 12 }}>🐾</button>
+            <button onClick={() => { sfx.tap(); setScreen("bag"); }} style={{ ...blockBtn("#c9a04a"), padding: "5px 8px", fontSize: 12 }}>🎒</button>
+            <button onClick={toggleMute} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 17 }}>{muteUI ? "🔇" : "🔊"}</button>
+            <button onClick={saveAndQuit} style={{ ...blockBtn("#9A9A9A"), padding: "5px 7px", fontSize: 11 }}>💾やめる</button>
           </div>
         </div>
-      </div>
-    );
-  }
-
-  // ---- Pronunciation summary ----
-  if (stage === "pron_summary") {
-    const cat = PRONUNCIATION_CATEGORIES[pronCategory];
-    const passedCount = pronResults.filter((r) => r.passed).length;
-    return (
-      <div style={{ background: "#FBF7F0", minHeight: "100vh", fontFamily: "system-ui, sans-serif", color: "#1F2A37" }}>
-        <div style={{ maxWidth: 480, margin: "0 auto", padding: "40px 20px" }}>
-          <div style={{ textAlign: "center", marginBottom: 24 }}>
-            <Sparkles size={26} color={cat.color} />
-            <h2 style={{ fontFamily: "Georgia, serif", fontSize: 24, margin: "8px 0 4px" }}>発音チェック完了</h2>
-            <p style={{ color: "#6B7280", fontSize: 14, margin: 0 }}>{cat.label} · {passedCount} / {pronResults.length} 正解</p>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 28 }}>
-            {pronResults.map((r, i) => (
-              <div key={i} style={{ background: "#fff", border: "1px solid #E5DFD3", borderRadius: 12, padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div>
-                  <div style={{ fontFamily: "Georgia, serif", fontSize: 15, fontWeight: 700 }}>{r.word}</div>
-                  <div style={{ fontSize: 12, color: "#6B7280", marginTop: 2 }}>聞き取り: 「{r.transcript || "(なし)"}」</div>
-                </div>
-                {r.passed
-                  ? <CheckCircle2 size={18} color="#7A8B6F" />
-                  : <AlertCircle size={18} color="#C9694F" />}
-              </div>
-            ))}
-          </div>
-          <div style={{ display: "flex", gap: 10 }}>
-            <button onClick={startPronSession}
-              style={{ flex: 1, padding: "15px", borderRadius: 14, background: cat.color, color: "#fff", border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
-              もう一度練習
-            </button>
-            <button onClick={() => setStage("onboarding")}
-              style={{ flex: 1, padding: "15px", borderRadius: 14, background: "#1F2A37", color: "#FBF7F0", border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
-              終わる
-            </button>
-          </div>
+        <div style={{ textAlign: "center", fontSize: 12, marginBottom: 4 }}>
+          {sc.emoji} {sc.name}　|　{sword.emoji}{sword.name}(こうげき {sword.dmg})
         </div>
-      </div>
-    );
-  }
-
-  // ---- Lesson ----
-  return (
-    <div style={{ background: "#FBF7F0", minHeight: "100vh", display: "flex", flexDirection: "column", fontFamily: "system-ui, sans-serif", color: "#1F2A37" }}>
-      <style>{`
-        @keyframes pulseRing { 0%{box-shadow:0 0 0 0 rgba(217,119,87,0.45)} 70%{box-shadow:0 0 0 14px rgba(217,119,87,0)} 100%{box-shadow:0 0 0 0 rgba(217,119,87,0)} }
-        .mic-pulse{animation:pulseRing 1.6s infinite}
-        @keyframes bar{0%,100%{height:6px}50%{height:18px}}
-        .wave-bar{display:inline-block;width:3px;background:#D97757;border-radius:2px;margin:0 1.5px;animation:bar 0.9s infinite ease-in-out}
-      `}</style>
-
-      {/* Header */}
-      <div style={{ position: "sticky", top: 0, background: "#FBF7F0", borderBottom: "1px solid #E5DFD3", padding: "12px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", zIndex: 10 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 8, background: "#D97757", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Sparkles size={15} color="#fff" />
-          </div>
-          <div>
-            <div style={{ fontSize: 13.5, fontWeight: 700 }}>Question {currentIndex + 1} of {queueRef.current.length}</div>
-            <div style={{ fontSize: 11, color: "#9CA3AF" }}>
-              {mode === "scenario"
-                ? SCENARIOS[scenarioKey].label
-                : mode === "lesson"
-                ? `${LESSONS[lessonId].label} · ${lessonActivity === "explain" ? "文法説明" : "授業運営"}`
-                : `${currentType === "review" ? "🔁 Review" : "✨ New"} · ${settings.level}`}
-            </div>
-          </div>
+        <div style={{ textAlign: "center", fontSize: 12, marginBottom: 6, display: "flex", justifyContent: "center", alignItems: "center", gap: 10 }}>
+          <PBadge n={gems} />　のこりモンスター {map.mobs.length}
         </div>
-        <button onClick={() => setShowSettings(true)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
-          <Settings2 size={18} color="#6B7280" />
-        </button>
-      </div>
 
-      {/* Settings modal */}
-      {showSettings && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(31,42,55,0.4)", display: "flex", alignItems: "flex-end", zIndex: 50 }} onClick={() => setShowSettings(false)}>
-          <div onClick={(e) => e.stopPropagation()} style={{ background: "#FBF7F0", width: "100%", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: "20px 20px 28px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-              <span style={{ fontWeight: 700, fontSize: 15 }}>Lesson in progress</span>
-              <button onClick={() => setShowSettings(false)} style={{ background: "none", border: "none", cursor: "pointer" }}><X size={20} /></button>
-            </div>
-            {!speech.supported && (
-              <p style={{ fontSize: 12.5, color: "#C9694F", marginBottom: 16 }}>🎤 Voice input isn't available in this browser. Text input is used instead.</p>
-            )}
-            <button onClick={() => { setShowSettings(false); setStage("onboarding"); }}
-              style={{ width: "100%", padding: "12px", borderRadius: 12, border: "1px solid #E5DFD3", background: "#FFFFFF", fontWeight: 600, fontSize: 13.5, cursor: "pointer" }}>
-              Exit lesson
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Main area */}
-      <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "20px 16px 24px", display: "flex", flexDirection: "column", gap: 16, alignItems: "center" }}>
-        <div style={{ width: "100%", maxWidth: 440 }}>
-
-          {phase === "generating" && (
-            <div style={{ textAlign: "center", padding: 40, color: "#9CA3AF", fontSize: 14 }}>Coach is preparing a new sentence…</div>
-          )}
-
-          {phase === "error" && (
-            <div style={{ textAlign: "center", padding: 24 }}>
-              <p style={{ color: "#C9694F", fontSize: 13.5, marginBottom: 12 }}>{error}</p>
-              <button onClick={() => failedStepRef.current?.()}
-                style={{ background: "#1F2A37", color: "#fff", border: "none", borderRadius: 10, padding: "10px 20px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Retry</button>
-            </div>
-          )}
-
-          {currentCard && phase !== "generating" && phase !== "error" && (
-            <div style={{ background: "#FFFFFF", border: "1px solid #E5DFD3", borderRadius: 18, padding: "20px", boxShadow: "0 2px 10px rgba(31,42,55,0.06)" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: "#D97757", letterSpacing: "0.05em" }}>
-                  {mode === "lesson"
-                    ? (lessonActivity === "explain" ? "英語で説明してみよう" : "英語で言ってみよう")
-                    : "JAPANESE PROMPT"}
-                </span>
-                {mode === "lesson"
-                  ? null
-                  : phase === "prompt"
-                  ? <span style={{ display: "inline-flex", alignItems: "center", height: 18 }}>
-                      {[0,1,2,3].map((i) => <span key={i} className="wave-bar" style={{ animationDelay: `${i * 0.12}s` }} />)}
-                    </span>
-                  : <button onClick={() => speak(currentCard.japanese, "ja-JP")} style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF" }}><Volume2 size={16} /></button>
-                }
-              </div>
-              {mode === "lesson" && currentCard.pointLabel && (
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", marginBottom: 6 }}>{currentCard.pointLabel}</div>
-              )}
-              <div style={{ fontFamily: "Georgia, serif", fontSize: mode === "lesson" ? 18 : 21, lineHeight: 1.5, fontWeight: 600 }}>{currentCard.japanese}</div>
-
-              {phase === "await_answer" && (
-                <>
-                  <button onClick={() => setShowHint((s) => !s)}
-                    style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 12, background: "none", border: "none", padding: 0, cursor: "pointer", color: "#C9A04A", fontSize: 12.5, fontWeight: 600 }}>
-                    <Lightbulb size={14} /> {showHint ? currentCard.hint : "Show hint"}
-                  </button>
-                  {speech.supported ? (
-                    <div style={{ textAlign: "center", marginTop: 22 }}>
-                      {micHint && (
-                        <div style={{ fontSize: 12.5, color: "#C9694F", marginBottom: 10 }}>{micHint}</div>
-                      )}
-                      <button onClick={beginListening} className="mic-pulse"
-                        style={{ width: 64, height: 64, borderRadius: "50%", background: "#D97757", border: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-                        <Mic size={26} color="#fff" />
-                      </button>
-                      <div style={{ fontSize: 12.5, color: "#9CA3AF", marginTop: 8 }}>Tap and answer in English</div>
-                    </div>
-                  ) : (
-                    <TypedInput value={answerText} onChange={setAnswerText}
-                      onSubmit={() => answerText.trim() && submitAnswer(answerText.trim())}
-                      placeholder="Type your English answer…" />
-                  )}
-                </>
-              )}
-
-              {phase === "listening" && (
-                <div style={{ textAlign: "center", marginTop: 22 }}>
-                  <div style={{ minHeight: 28, fontSize: 16, marginBottom: 14, fontStyle: speech.transcript ? "normal" : "italic", color: speech.transcript ? "#1F2A37" : "#9CA3AF" }}>
-                    {speech.transcript || "Listening…"}
-                  </div>
-                  <button onClick={finishListening}
-                    style={{ width: 64, height: 64, borderRadius: "50%", background: "#1F2A37", border: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-                    <Square size={20} color="#fff" fill="#fff" />
-                  </button>
-                  <div style={{ fontSize: 12.5, color: "#9CA3AF", marginTop: 8 }}>Tap when you're done (auto-advances if nothing is heard)</div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {phase === "evaluating" && (
-            <div style={{ textAlign: "center", padding: 28, color: "#9CA3AF", fontSize: 14 }}>Coach is checking your answer…</div>
-          )}
-
-          {["result", "repeating", "repeat_ack"].includes(phase) && evalResult && (
-            <div style={{ marginTop: 14, background: "#FFFFFF", border: "1px solid #E5DFD3", borderRadius: 16, padding: "16px 18px", boxShadow: "0 2px 8px rgba(31,42,55,0.05)" }}>
-              {SCORE_META[evalResult.score] && (() => {
-                const M = SCORE_META[evalResult.score];
+        {/* マップ */}
+        <div onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}
+          style={{ ...panel, padding: 6, background: sc.panel, display: "inline-block", width: "100%", touchAction: "none" }}>
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${W}, ${TILE}px)`, justifyContent: "center" }}>
+            {map.tiles.map((row, y) =>
+              row.map((t, x) => {
+                const mob = map.mobs.find((m) => m.x === x && m.y === y);
+                const here = pos.x === x && pos.y === y;
                 return (
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
-                    <M.Icon size={15} color={M.color} />
-                    <span style={{ fontSize: 12.5, fontWeight: 700, color: M.color }}>{M.label}</span>
+                  <div key={`${x},${y}`} style={{ width: TILE, height: TILE, background: tileBg(t), border: "1px solid #00000022", display: "flex", alignItems: "center", justifyContent: "center", fontSize: TILE * 0.62, position: "relative" }}>
+                    <span style={{ opacity: 0.55, fontSize: TILE * 0.5 }}>{tileChar(t)}</span>
+                    {mob && (
+                      <span className="mobIdle" style={{ position: "absolute", fontSize: TILE * (mob.boss ? 0.85 : 0.7), filter: mob.boss ? "drop-shadow(0 0 4px #c0392b)" : "none" }}>
+                        {mob.emoji}
+                      </span>
+                    )}
+                    {here && <span style={{ position: "absolute", fontSize: TILE * 0.78 }}>{mode === "junior" ? "🧒" : "👦"}</span>}
                   </div>
                 );
-              })()}
-              {lastAnswer && (
-                <div style={{ padding: "9px 12px", background: "#FBF7F0", border: "1px dashed #E5DFD3", borderRadius: 10, marginBottom: 10 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#9CA3AF", marginBottom: 2 }}>あなたの発話(聞き取り結果)</div>
-                  <div style={{ fontSize: 13.5, color: "#1F2A37" }}>{lastAnswer}</div>
-                </div>
-              )}
-              {evalResult.feedback && (
-                <div style={{ fontSize: 14, lineHeight: 1.6, color: "#374151", marginBottom: 10 }}>{evalResult.feedback}</div>
-              )}
-              <div style={{ padding: "10px 12px", background: "#F7F4EC", borderRadius: 10, fontSize: 14, fontStyle: "italic", color: "#1F2A37", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                <span>{evalResult.corrected_sentence || currentCard.english_correct}</span>
-                <button onClick={() => speak(evalResult.corrected_sentence || currentCard.english_correct, "en-US")}
-                  style={{ background: "none", border: "none", cursor: "pointer", color: "#9CA3AF", flexShrink: 0 }}>
-                  <Volume2 size={15} />
-                </button>
-              </div>
+              })
+            )}
+          </div>
+        </div>
 
-              {phase === "result" && (
-                speech.supported ? (
-                  <div style={{ textAlign: "center", marginTop: 18 }}>
-                    <button onClick={beginRepeat}
-                      style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "#1F2A37", color: "#fff", border: "none", borderRadius: 24, padding: "11px 22px", fontSize: 13.5, fontWeight: 600, cursor: "pointer" }}>
-                      <Repeat size={15} /> Repeat it
-                    </button>
-                  </div>
-                ) : (
-                  <div style={{ textAlign: "center", marginTop: 18 }}>
-                    <button onClick={skipRepeat}
-                      style={{ background: "#1F2A37", color: "#fff", border: "none", borderRadius: 24, padding: "11px 22px", fontSize: 13.5, fontWeight: 600, cursor: "pointer" }}>
-                      Continue
-                    </button>
-                  </div>
-                )
-              )}
+        <CatRow state={catState} line={mapMsg || "やじるしで あるこう!モンスターに ぶつかると バトルだ!"} />
 
-              {phase === "repeating" && (
-                <div style={{ textAlign: "center", marginTop: 18 }}>
-                  <div style={{ minHeight: 24, fontSize: 14.5, color: speech.transcript ? "#1F2A37" : "#9CA3AF", marginBottom: 12, fontStyle: speech.transcript ? "normal" : "italic" }}>
-                    {speech.transcript || "Say it out loud…"}
-                  </div>
-                  <button onClick={finishRepeatWithSpeech} className="mic-pulse"
-                    style={{ width: 54, height: 54, borderRadius: "50%", background: "#D97757", border: "none", display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
-                    <Square size={17} color="#fff" fill="#fff" />
-                  </button>
-                </div>
-              )}
+        {/* 十字キー */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, marginTop: 4 }}>
+          <button onClick={() => tryMove(0, -1)} style={{ ...blockBtn("#4a90d9"), width: 68, padding: "12px 0", fontSize: 22 }}>▲</button>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button onClick={() => tryMove(-1, 0)} style={{ ...blockBtn("#4a90d9"), width: 68, padding: "12px 0", fontSize: 22 }}>◀</button>
+            <button onClick={() => tryMove(0, 1)} style={{ ...blockBtn("#4a90d9"), width: 68, padding: "12px 0", fontSize: 22 }}>▼</button>
+            <button onClick={() => tryMove(1, 0)} style={{ ...blockBtn("#4a90d9"), width: 68, padding: "12px 0", fontSize: 22 }}>▶</button>
+          </div>
+        </div>
 
-              {phase === "repeat_ack" && (
-                <div style={{ textAlign: "center", marginTop: 16 }}>
-                  {repeatNote && <div style={{ fontSize: 13.5, color: "#6B7280", marginBottom: 12 }}>{repeatNote}</div>}
-                  <button onClick={goNext}
-                    style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "#D97757", color: "#fff", border: "none", borderRadius: 24, padding: "12px 24px", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
-                    {currentIndex + 1 >= queueRef.current.length ? "Finish lesson" : "Next question"} <ChevronRight size={16} />
-                  </button>
+        {showCat && <CatChat onClose={() => setShowCat(false)} />}
+      </Frame>
+    );
+  }
+
+  // ===================== バトル =====================
+  if (screen === "battle" && enemy) {
+    const creep = phase === "prompt" ? Math.max(0, (menace - 0.25) / 0.75) : 0;
+    const flinch = enemyState === "hit" || enemyState === "crit";
+    const defeated = enemyState === "defeat";
+    const attacking = enemyState === "attack";
+    const enemyTransform = defeated
+      ? "scale(0) rotate(200deg)"
+      : `translateY(${creep * 52}px) translateX(${attacking ? 14 : 0}px) scale(${(1 + creep * 0.85) * (flinch ? 0.84 : 1)}) rotate(${flinch ? (enemyState === "crit" ? -16 : -10) : 0}deg)`;
+    const menaceWarn = creep > 0.5;
+
+    const sparks = [];
+    if (phase === "result" && result && result.dmg > 0) {
+      for (let i = 0; i < 8; i++) {
+        const ang = (Math.PI * 2 * i) / 8 + (hitId % 3);
+        const dist = 40 + (result.crit ? 32 : 12);
+        sparks.push({ tx: Math.cos(ang) * dist, ty: Math.sin(ang) * dist });
+      }
+    }
+
+    return (
+      <Frame shake={shake}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6, fontSize: 17 }}>
+          <div>{"❤️".repeat(hearts)} <span style={{ fontSize: 13, fontWeight: 700 }}>{hearts}/{MAX_HEARTS}</span></div>
+          <div style={{ fontSize: 13 }}>{combo >= 2 && <span style={{ color: "#e8b923", textShadow: `1px 1px 0 ${INK}` }}>🔥{combo}コンボ</span>}</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontSize: 13 }}>{sword.emoji}{sword.dmg}</span>
+            <button onClick={toggleMute} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 17 }}>{muteUI ? "🔇" : "🔊"}</button>
+          </div>
+        </div>
+
+        <div style={{ ...panel, textAlign: "center", position: "relative", overflow: "hidden", background: menaceWarn ? "#f0cccc" : "#dfe7ef", transition: "background .3s", minHeight: 175 }}>
+          {menaceWarn && <div style={{ position: "absolute", inset: 0, boxShadow: `inset 0 0 40px 12px rgba(200,40,40,${creep * 0.7})`, pointerEvents: "none" }} />}
+          <div style={{ fontSize: 12, fontWeight: 700, marginBottom: 4, position: "relative", display: "flex", flexWrap: "wrap", justifyContent: "center", alignItems: "center", gap: 6 }}>
+            <span>{enemy.boss && "👑 "}{enemy.name}</span>
+            <span style={{ background: "#c0392b", color: "#fff", padding: "1px 7px", border: `2px solid ${INK}`, fontSize: 11, fontWeight: 700 }}>⚔ こうげき {enemy.atk}</span>
+            {enemy.ranged && <span style={{ background: "#8446B0", color: "#fff", padding: "1px 7px", border: `2px solid ${INK}`, fontSize: 11 }}>🏹 とおくから</span>}
+            {menaceWarn && <span style={{ color: "#c0392b" }}>⚠ ちかづいてくる!</span>}
+          </div>
+          <div className="float" style={{ position: "relative", display: "inline-block" }}>
+            <div style={{ position: "relative", display: "inline-block", transform: enemyTransform, transition: phase === "prompt" && !flinch ? "transform .12s linear" : "transform .4s ease-out", filter: flinch ? "brightness(1.6) saturate(.5)" : menaceWarn ? "drop-shadow(0 0 8px rgba(200,40,40,.9))" : "none", animation: menaceWarn ? "menacePulse .5s infinite" : "none" }}>
+              <span style={{ fontSize: enemy.boss ? 92 : 80, display: "inline-block" }}>{enemy.emoji}</span>
+              {flinch && <span style={{ position: "absolute", inset: 0, background: "radial-gradient(circle, rgba(220,50,50,.75), transparent 70%)", animation: "flashOut .4s forwards", pointerEvents: "none" }} />}
+            </div>
+            {(flinch || defeated) && pain && (
+              <span key={hitId} style={{ position: "absolute", top: -8, left: "50%", fontSize: result?.crit ? 36 : 28, animation: "reactPop .6s forwards", pointerEvents: "none" }}>{pain}</span>
+            )}
+            {phase === "result" && result && result.dmg > 0 && (
+              <span key={"s" + hitId} style={{ position: "absolute", top: "45%", left: "50%", fontSize: 56, animation: "slash .5s forwards", pointerEvents: "none" }}>💥</span>
+            )}
+            {sparks.map((s, i) => (
+              <span key={"p" + hitId + "_" + i} style={{ position: "absolute", top: "45%", left: "50%", fontSize: 15, ["--tx"]: `${s.tx}px`, ["--ty"]: `${s.ty}px`, animation: "spark .55s forwards", pointerEvents: "none" }}>✨</span>
+            ))}
+            {attackFx && (
+              <span key={attackFx.id} style={{ position: "absolute", top: "55%", left: "50%", fontSize: enemy.boss ? 46 : 38, zIndex: 5, animation: `${attackFx.ranged ? "arrowFly" : "punchHit"} .55s forwards`, pointerEvents: "none" }}>
+                {attackFx.ranged ? "🏹" : "👊"}
+              </span>
+            )}
+          </div>
+          <HpBar hp={enemyHp} max={enemy.maxHp} color={enemy.color} />
+        </div>
+
+        <CatRow state={catState} line={catLine} />
+
+        <div style={{ ...panel, background: "#fffef2", textAlign: "center" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "#4E7A38", marginBottom: 4 }}>{mode === "junior" ? "これを えいごで!" : "えいごで こうげき!"}</div>
+          <div style={{ fontSize: 52, lineHeight: 1.1, margin: "2px 0 4px" }}>{question?.emoji}</div>
+          <div style={{ fontSize: mode === "junior" ? 23 : 21, fontWeight: 700 }}>{question?.ja}</div>
+          <button onClick={() => { sfx.resume(); speak(question.ja, "ja-JP"); }} style={{ ...blockBtn("#9A9A9A"), padding: "6px 14px", fontSize: 13, marginTop: 8 }}>🔊 にほんごを きく</button>
+
+          {phase === "prompt" && (
+            <div style={{ marginTop: 14 }}>
+              {speech.supported ? (
+                <button onClick={beginListening} style={{ ...blockBtn("#c0392b"), width: "100%", fontSize: 21 }}>🗡️ こうげき!(タップして はなす)</button>
+              ) : (
+                <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                  <input value={typed} onChange={(e) => setTyped(e.target.value)} onKeyDown={(e) => e.key === "Enter" && submitTyped()} placeholder="えいごで かいてね"
+                    style={{ flex: 1, fontFamily: FONT, fontSize: 16, padding: "10px 12px", border: `3px solid ${INK}`, borderRadius: 0, outline: "none" }} />
+                  <button onClick={submitTyped} style={{ ...blockBtn("#c0392b"), fontSize: 16 }}>🗡️</button>
                 </div>
               )}
             </div>
           )}
-        </div>
-      </div>
-    </div>
-  );
-}
 
-function TypedInput({ value, onChange, onSubmit, placeholder }) {
-  return (
-    <div style={{ display: "flex", gap: 8, marginTop: 18 }}>
-      <input value={value} onChange={(e) => onChange(e.target.value)}
-        onKeyDown={(e) => { if (e.key === "Enter") onSubmit(); }}
-        placeholder={placeholder}
-        style={{ flex: 1, padding: "12px 14px", borderRadius: 12, border: "1px solid #E5DFD3", fontSize: 15, outline: "none" }} />
-      <button onClick={onSubmit}
-        style={{ background: "#1F2A37", color: "#fff", border: "none", borderRadius: 12, padding: "0 18px", fontSize: 13.5, fontWeight: 600, cursor: "pointer" }}>Go</button>
-    </div>
-  );
+          {phase === "listening" && (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ minHeight: 26, fontSize: 18, marginBottom: 10, color: speech.transcript ? INK : "#999" }}>{speech.transcript || "🎤 きいてるよ…"}</div>
+              <button onClick={() => speech.stop()} style={{ ...blockBtn("#23202b"), width: "100%" }}>■ いえたら タップ</button>
+            </div>
+          )}
+
+          {phase === "result" && result && (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: 19, fontWeight: 700, marginBottom: 8, color: result.result === "correct" ? "#4E7A38" : result.result === "close" ? "#e8a33d" : "#c0392b" }}>
+                {result.result === "correct" ? "せいかい! ⚔️" : result.result === "close" ? "おしい!" : "ミス…"}
+              </div>
+              <div style={{ ...panel, background: "#f2efe0", padding: "9px 11px", marginBottom: 6 }}>
+                <div style={{ fontSize: 11, color: "#777", marginBottom: 2 }}>こたえ</div>
+                <div style={{ fontSize: 17, display: "flex", justifyContent: "center", alignItems: "center", gap: 8 }}>
+                  {question.en}
+                  <button onClick={() => { sfx.resume(); speak(question.en, "en-US"); }} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 15 }}>🔊</button>
+                </div>
+              </div>
+              {result.heard && <div style={{ fontSize: 12, color: "#888", marginBottom: 8 }}>きみの こえ: 「{result.heard}」</div>}
+
+              <div style={{ background: "#eef3ff", border: `2px dashed ${INK}`, padding: "8px 10px", marginBottom: 10 }}>
+                <div style={{ fontSize: 11.5, color: "#555", marginBottom: 6 }}>ちゃんと いえたのに ちがう はんてい だったら…</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button onClick={() => selfSay(true)} style={{ ...blockBtn("#6AA84F"), flex: 1, fontSize: 13, padding: "9px" }}>🙆 いえてた!</button>
+                  <button onClick={() => selfSay(false)} style={{ ...blockBtn("#c99"), flex: 1, fontSize: 13, padding: "9px" }}>🙅 いえてなかった</button>
+                </div>
+              </div>
+
+              <button onClick={onBattleContinue} style={{ ...blockBtn(result.defeated ? "#e8b923" : "#6AA84F"), width: "100%" }}>
+                {hearts <= 0 ? "けっか を みる" : result.defeated ? "🎁 たからばこ →" : "つぎの もんだい →"}
+              </button>
+            </div>
+          )}
+        </div>
+      </Frame>
+    );
+  }
+
+  return <Frame shake=""><div style={{ padding: 40, textAlign: "center" }}>よみこみちゅう…</div></Frame>;
 }
