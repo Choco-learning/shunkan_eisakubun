@@ -286,6 +286,29 @@ function buildLessonModeQueue(lesson, activity, pointId) {
   }));
 }
 
+// --- 課ごとの「練習の種類」ラベル(データが無ければ従来どおり) ---
+const DEFAULT_ACTIVITY_LABELS = { explain: "① 文法説明", run: "② 授業運営" };
+const DEFAULT_ACTIVITY_HINTS = {
+  explain: "文法ポイントを、初級者にわかるように英語で説明する練習です。",
+  run: "練習B・Cを英語で進行する練習です(指示・質問・訂正・励まし)。",
+};
+function activityLabels(lesson) {
+  return { ...DEFAULT_ACTIVITY_LABELS, ...(lesson?.activityLabels || {}) };
+}
+function activityHints(lesson) {
+  return { ...DEFAULT_ACTIVITY_HINTS, ...(lesson?.activityHints || {}) };
+}
+// ヘッダー表示用(先頭の①②を外した短いラベル)
+function activityShortLabel(lesson, activity) {
+  return activityLabels(lesson)[activity].replace(/^[①②③]\s*/, "");
+}
+
+// --- 課のグループ(課選択画面の見出し) ---
+const LESSON_GROUPS = [
+  { key: "minna", label: "みんなの日本語" },
+  { key: "dec", label: "Dec先生レッスン復習" },
+];
+
 // --- あいまい一致ヘルパー ---
 // 音声認識の軽微な聞き間違い(1〜2文字の違い)を許容するための編集距離
 function editDistance(a, b) {
@@ -996,24 +1019,38 @@ export default function ShunkanEisakubunCoach() {
             <>
               <div style={{ marginBottom: 20 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#6B7280", marginBottom: 10 }}>課を選択</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {Object.values(LESSONS).map((l) => (
-                    <button key={l.id} onClick={() => { setLessonId(l.id); setLessonPointId("all"); }}
-                      style={{ textAlign: "left", padding: "13px 16px", borderRadius: 12, border: lessonId === l.id ? "2px solid #D97757" : "1px solid #E5DFD3", background: lessonId === l.id ? "#FBEFE6" : "#FFFFFF", cursor: "pointer" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                        <BookOpen size={15} color={lessonId === l.id ? "#D97757" : "#9CA3AF"} />
-                        <span style={{ fontWeight: 700, fontSize: 15 }}>{l.label}</span>
+                {LESSON_GROUPS.map((g) => {
+                  const list = Object.values(LESSONS).filter((l) => (l.group || "minna") === g.key);
+                  if (!list.length) return null;
+                  const accent = g.key === "dec" ? "#7A8B6F" : "#D97757";
+                  const tint = g.key === "dec" ? "#EEF2EA" : "#FBEFE6";
+                  return (
+                    <div key={g.key} style={{ marginBottom: 14 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 7, margin: "0 0 8px" }}>
+                        <span style={{ width: 6, height: 6, borderRadius: 3, background: accent }} />
+                        <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.04em", color: accent }}>{g.label}</span>
                       </div>
-                      <div style={{ fontSize: 11.5, color: "#6B7280", marginTop: 3 }}>{l.subtitle}</div>
-                    </button>
-                  ))}
-                </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {list.map((l) => (
+                          <button key={l.id} onClick={() => { setLessonId(l.id); setLessonPointId("all"); }}
+                            style={{ textAlign: "left", padding: "13px 16px", borderRadius: 12, border: lessonId === l.id ? `2px solid ${accent}` : "1px solid #E5DFD3", background: lessonId === l.id ? tint : "#FFFFFF", cursor: "pointer" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                              <BookOpen size={15} color={lessonId === l.id ? accent : "#9CA3AF"} />
+                              <span style={{ fontWeight: 700, fontSize: 15 }}>{l.label}</span>
+                            </div>
+                            <div style={{ fontSize: 11.5, color: "#6B7280", marginTop: 3 }}>{l.subtitle}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
               <div style={{ marginBottom: 20 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#6B7280", marginBottom: 10 }}>練習の種類</div>
                 <div style={{ display: "flex", gap: 8, background: "#F0EAD9", padding: 4, borderRadius: 14 }}>
-                  {[["explain", "① 文法説明"], ["run", "② 授業運営"]].map(([key, label]) => (
+                  {Object.entries(activityLabels(lesson)).map(([key, label]) => (
                     <button key={key} onClick={() => setLessonActivity(key)}
                       style={{ flex: 1, padding: "10px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12.5, background: lessonActivity === key ? "#1F2A37" : "transparent", color: lessonActivity === key ? "#FBF7F0" : "#6B7280" }}>
                       {label}
@@ -1021,16 +1058,14 @@ export default function ShunkanEisakubunCoach() {
                   ))}
                 </div>
                 <div style={{ fontSize: 11.5, color: "#9CA3AF", marginTop: 8, lineHeight: 1.6 }}>
-                  {lessonActivity === "explain"
-                    ? "文法ポイントを、初級者にわかるように英語で説明する練習です。"
-                    : "練習B・Cを英語で進行する練習です（指示・質問・訂正・励まし）。"}
+                  {activityHints(lesson)[lessonActivity]}
                 </div>
               </div>
 
               <div style={{ marginBottom: 28 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#6B7280", marginBottom: 10 }}>文法ポイント</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {[...lesson.points, { id: "all", label: "①〜③ まとめて練習", subtitle: "各ポイントからランダムに出題" }].map((p) => (
+                  {[...lesson.points, { id: "all", label: "すべてまとめて練習", subtitle: "各ポイントからランダムに出題" }].map((p) => (
                     <button key={p.id} onClick={() => setLessonPointId(p.id)}
                       style={{ textAlign: "left", padding: "12px 16px", borderRadius: 12, border: lessonPointId === p.id ? "2px solid #1F2A37" : "1px solid #E5DFD3", background: lessonPointId === p.id ? "#1F2A37" : "#FFFFFF", color: lessonPointId === p.id ? "#FBF7F0" : "#1F2A37", cursor: "pointer" }}>
                       <div style={{ fontWeight: 700, fontSize: 14 }}>{p.label}</div>
@@ -1317,7 +1352,7 @@ export default function ShunkanEisakubunCoach() {
               {mode === "scenario"
                 ? SCENARIOS[scenarioKey].label
                 : mode === "lesson"
-                ? `${LESSONS[lessonId].label} · ${lessonActivity === "explain" ? "文法説明" : "授業運営"}`
+                ? `${LESSONS[lessonId].label} · ${activityShortLabel(LESSONS[lessonId], lessonActivity)}`
                 : `${currentType === "review" ? "🔁 Review" : "✨ New"} · ${settings.level}`}
             </div>
           </div>
