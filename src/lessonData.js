@@ -674,4 +674,157 @@ export const LESSONS = {
   },
 
 
+
+  // ============================================================
+  //  ▼ Dec先生レッスン復習(英語レッスンで習った内容)
+  //    group: "dec" を付けると、アプリの課選択画面で
+  //    「Dec先生レッスン復習」のグループに分かれて表示されます。
+  //    activityLabels / activityHints で「練習の種類」の表示も課ごとに変えられます。
+  // ============================================================
+  dec01: {
+    id: "dec01",
+    label: "Dec先生レッスン復習",
+    subtitle: "自己紹介 / 教室英語 / 語彙説明 / スモールトーク",
+    group: "dec",
+    activityLabels: { explain: "① 表現を言う", run: "② 実演・やりとり" },
+    activityHints: {
+      explain: "レッスンで習った表現を、一文ずつ英語で言う練習です。",
+      run: "実際の場面を想定して、続けて英語でやりとりする練習です。",
+    },
+    points: [
+      {
+        id: "01",
+        label: "① 教師としての自己紹介",
+        subtitle: "online first lesson",
+        explain: [
+          { ja: "オンラインの初回レッスンで、名前と職業をシンプルに名乗る", en: "Hi, I'm Hikari. I'm a Japanese teacher. Today, we'll practise basic Japanese conversation.", hint: "name → job → today's plan" },
+          { ja: "冬は特にシチューやスープを作るのが好き、と趣味を一言添える", en: "I like cooking, especially stew and soup in winter.", hint: "especially + season" },
+          { ja: "間違えても大丈夫、いつでも質問していい、と安心させる", en: "Please don't worry if you make mistakes. You can ask me questions anytime.", hint: "don't worry if... / anytime" },
+          { ja: "ネパール・ミャンマー・中国など、いろいろな国の生徒を教えていると伝える", en: "I teach students from different countries, including Nepal, Myanmar, and China.", hint: "from different countries, including..." },
+          { ja: "自己紹介を通しで言う(名前 → 担当 → 生徒 → 今日の内容 → 安心の一言)", en: "Hi, I'm Hikari. I'm your Japanese teacher. I teach students from different countries, including Nepal, Myanmar, and China. In today's lesson, we'll practise basic Japanese conversation. Please don't worry if you make mistakes. You can ask me questions anytime.", hint: "the full five-move version" },
+          { ja: "最近転職したこと(前は会社勤め、今は日本語学校で教えている)を英語で言う", en: "My name is Hikari. Recently I changed my job. I used to work in an office, but now I teach at a Japanese language school.", hint: "used to work ... but now" },
+          { ja: "子どもを迎えに行って家に連れて帰った、と英語で言う", en: "I have two children, and I picked them up and brought them home.", hint: "pick up / bring home" },
+          { ja: "日本語の文法を英語で説明するのは難しい、と正直に伝える", en: "Explaining Japanese grammar in English is difficult, and talking with the students can be difficult too.", hint: "explaining ... is difficult" },
+        ],
+        run: [
+          { ja: "レッスン冒頭。生徒に挨拶して、調子を尋ねる", en: "Hi, good to see you. How are you today?", hint: "greet → ask how they are" },
+          { ja: "自己紹介のあと、生徒にも自己紹介をお願いする", en: "Now, could you introduce yourself? Just your name, your country, and what you do.", hint: "could you...? / name, country, job" },
+          { ja: "生徒の答えを受けて、あいづちを打ってからレッスンに入る", en: "That sounds nice. Thank you. Now, let's start today's lesson.", hint: "react → move on" },
+          { ja: "生徒が緊張しているので、リラックスさせてから始める", en: "Please relax. We'll go slowly, and you can ask me questions anytime.", hint: "reassure before starting" },
+        ],
+      },
+      {
+        id: "02",
+        label: "② 教室で使う指示の英語",
+        subtitle: "classroom instructions",
+        explain: [
+          { ja: "私のあとについて繰り返してください、と指示する", en: "Please repeat after me.", hint: "repeat after me (NOT 'speak after me')" },
+          { ja: "まず聞いてください、と指示する", en: "Please listen first.", hint: "listen first" },
+          { ja: "これを書き取ってください、と指示する", en: "Please write this down.", hint: "write ... down" },
+          { ja: "一緒に練習しましょう、と誘う", en: "Let's practise together.", hint: "let's + together" },
+          { ja: "文を一つ作れますか、と尋ねる", en: "Can you make one sentence?", hint: "make one sentence" },
+          { ja: "その文を声に出して読んでください、と指示する", en: "Please read the sentence aloud.", hint: "read ... aloud" },
+          { ja: "例を出しますね、と前置きする", en: "I'll give you an example.", hint: "give you an example" },
+          { ja: "もう一度やってみましょう、と促す", en: "Let's try one more time.", hint: "one more time" },
+          { ja: "質問はありますか、と確認する", en: "Do you have any questions?", hint: "any questions" },
+          { ja: "「もう一回言って」を正しい形で言う(Please say one more. は不自然)", en: "Please say it one more time.", hint: "say IT one more time" },
+        ],
+        run: [
+          { ja: "「おはようございます」をリピートさせる", en: "Please repeat after me: おはようございます.", hint: "repeat after me + the target phrase" },
+          { ja: "生徒が言えたのでほめて、次は文を作らせる", en: "Good. Now, please make one sentence.", hint: "praise → next task" },
+          { ja: "生徒が黙ってしまったので、まず聞かせてから一緒にやると伝える", en: "No problem. Please listen first, and then let's practise together.", hint: "listen first → together" },
+          { ja: "書き取らせてから、声に出して読ませる", en: "Please write this down. Now, please read the sentence aloud.", hint: "write → read aloud" },
+          { ja: "うまくできなかったので、励ましてもう一度やらせる", en: "Don't worry. Let's try one more time.", hint: "reassure → retry" },
+          { ja: "練習の締めに、ほめてから質問がないか確認する", en: "Good job. Do you have any questions?", hint: "praise → check questions" },
+        ],
+      },
+      {
+        id: "03",
+        label: "③ 語彙をやさしく説明する",
+        subtitle: "word → simple meaning → example",
+        explain: [
+          { ja: "説明の型(語 → やさしい意味 → 例)そのものを英語で伝える", en: "I'll explain it in three steps: the word, a simple meaning, and one example.", hint: "word, meaning, example" },
+          { ja: "「おいしい」を型に沿って説明する", en: "おいしい means delicious. We use it when food tastes good. For example, このラーメンはおいしいです — this ramen is tasty.", hint: "means ... / we use it when ... / for example" },
+          { ja: "「便利」を型に沿って説明する", en: "便利 means convenient. We use it when something is useful and easy. For example, smartphones are convenient.", hint: "useful and easy" },
+          { ja: "「大丈夫」を型に沿って説明する", en: "大丈夫 means OK, or fine. We use it to check if someone is all right, and also to say 'no problem.' For example, 大丈夫ですか — are you OK?", hint: "two uses: check / no problem" },
+          { ja: "「もったいない」を型に沿って説明する", en: "もったいない is used when something good is wasted. For example, when you throw away food that is still fine to eat, we say もったいない.", hint: "something good is wasted" },
+          { ja: "「よろしくお願いします」は直訳が難しいことを説明する", en: "This phrase is difficult to translate directly. We use it when we meet someone, start working together, or ask for help. The English meaning changes depending on the situation.", hint: "no direct translation; depends on the situation" },
+        ],
+        run: [
+          { ja: "語彙説明の前に、簡単に説明しますね、と前置きする", en: "I'll explain this word in a simple way — the meaning first, and then one example.", hint: "set up the explanation" },
+          { ja: "説明のあと、生徒にその語を使った文を作らせる", en: "Now, can you make one sentence with おいしい?", hint: "make one sentence with ..." },
+          { ja: "生徒が意味を取り違えたので、やさしく直してもう一つ例を出す", en: "Almost. That's a little different. Let me give you another example.", hint: "gentle correction → another example" },
+          { ja: "この語を自分の国の言葉でどう言うか聞いてみる", en: "How do you say this word in your language? I'm curious.", hint: "in your language" },
+          { ja: "難しい語だったので、今は完璧に覚えなくていいと伝える", en: "This one is difficult, so please don't worry. You'll get used to it.", hint: "reassure about a hard word" },
+        ],
+      },
+      {
+        id: "04",
+        label: "④ 生徒とのスモールトーク",
+        subtitle: "before / after class",
+        explain: [
+          { ja: "今日はどうだったか聞く", en: "How was your day?", hint: "how was ..." },
+          { ja: "今日は仕事だったか聞く", en: "Did you work today?", hint: "did you ...?" },
+          { ja: "学校はどうだったか聞く", en: "How was school?", hint: "how was ..." },
+          { ja: "今週日本語を勉強したか聞く", en: "Did you study Japanese this week?", hint: "this week" },
+          { ja: "週末は何をしたか聞く", en: "What did you do at the weekend?", hint: "at the weekend" },
+          { ja: "日本食は好きか聞く", en: "Do you like Japanese food?", hint: "do you like ...?" },
+          { ja: "日本に来たことがあるか聞く", en: "Have you ever been to Japan?", hint: "have you ever been ...?" },
+        ],
+        run: [
+          { ja: "生徒の話に「いいですね」と反応する", en: "That sounds nice.", hint: "that sounds ..." },
+          { ja: "忙しかったという話に反応する", en: "That sounds busy.", hint: "that sounds ..." },
+          { ja: "興味を示して聞き返す", en: "Really? That's interesting. Tell me more.", hint: "show interest → ask for more" },
+          { ja: "できたことをほめる", en: "Good job.", hint: "short praise" },
+          { ja: "難しいと言う生徒を励ます", en: "Don't worry. Let's practise together.", hint: "reassure + invite" },
+          { ja: "生徒の集中が切れてきたので、一緒にやろうと促す(engaged を使って)", en: "If you're not engaged, it's easy to lose focus. Let's do this part together.", hint: "engaged = focused / taking part" },
+        ],
+      },
+    ],
+  },
+
+  decWaGa: {
+    id: "decWaGa",
+    label: "は・が の説明(別枠)",
+    subtitle: "は と が の違いを英語で説明する",
+    group: "dec",
+    activityLabels: { explain: "① 英語で説明", run: "② 授業での進め方" },
+    activityHints: {
+      explain: "「は」と「が」の違いを、初級者にわかるように英語で説明する練習です。",
+      run: "説明の導入・確認・訂正など、授業の進め方を英語で言う練習です。",
+    },
+    points: [
+      {
+        id: "01",
+        label: "① は = 主題",
+        subtitle: "topic marker",
+        explain: [
+          { ja: "「は」が主題(今、話題にしていること)を示すことを英語で説明する", en: "は marks the topic — the thing we want to talk about. 今日は暑いです means 'as for today, it's hot.' We're talking about today.", hint: "topic = what we want to talk about" },
+          { ja: "「は」を使うと、聞き手に「今の話題はこれだ」と伝わることを英語で説明する", en: "The topic marker tells the listener what the sentence is about. Once you say 今日は, the listener understands that today is the subject.", hint: "tells the listener the subject" },
+          { ja: "初級者向けに、一言でまとめて英語で言う", en: "Simple version: は introduces the topic, and が points out which one. Don't worry — you'll get a feel for it with practice.", hint: "one-line summary" },
+        ],
+        run: [
+          { ja: "今日は「は」と「が」の違いをやると英語で伝え、まず聞くよう指示する", en: "Today, I'll explain the difference between は and が. Please listen first, and then we'll practise together.", hint: "announce the topic → listen first" },
+          { ja: "説明のあと、質問がないか確認してから練習に入る", en: "That was a lot. Do you have any questions before we practise?", hint: "check questions → move to practice" },
+        ],
+      },
+      {
+        id: "02",
+        label: "② が = 比較・選び出し",
+        subtitle: "comparison / new information",
+        explain: [
+          { ja: "「が」は比べたり、どれか一つを選び出したりするときに使うことを英語で説明する", en: "が is used when we pick one thing out, often to compare. If we want to compare today and yesterday, we use が: 今日が暑いです — today is the hot one.", hint: "pick one out / compare" },
+          { ja: "「が」を使うと「何かを比べている」と相手に伝わることを英語で説明する", en: "When you use が, people understand you are comparing something, or answering the question 'which one?'", hint: "comparing / which one" },
+          { ja: "「誰が来ましたか」の答えにも「が」を使うことを例で説明する", en: "Look at the question 誰が来ましたか — who came? The answer keeps が: 田中さんが来ました. New information takes が.", hint: "question with が → answer with が" },
+          { ja: "自分も二つの助詞を混同することがある、と正直に伝える", en: "To be honest, I sometimes mix up the two particles myself, so please take your time.", hint: "mix up the two particles" },
+        ],
+        run: [
+          { ja: "二つの例文を並べて、違いに気づかせる", en: "Look at these two sentences. Can you tell me the difference between は and が here?", hint: "compare two sentences → elicit" },
+          { ja: "生徒が「が」を使うべきところで「は」を使ったので、やさしく直してもう一度言わせる", en: "Almost! Here we're comparing, so we need が. Let's try that sentence one more time.", hint: "gentle correction → retry" },
+          { ja: "生徒の集中が切れてきたので、一緒にやろうと促してから続ける", en: "This part is difficult, so let's do it together. If you're not engaged, it's easy to lose focus.", hint: "re-engage → continue" },
+        ],
+      },
+    ],
+  },
+
 };
